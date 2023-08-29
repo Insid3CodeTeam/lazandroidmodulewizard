@@ -387,6 +387,7 @@ type
     procedure SetEncodeValueData(_value: boolean);
     procedure PostSOAPDataAsync(_SOAPData: string; _stringUrl: string);
     function PostJSONData(_strURI: string; _jsonData: string): string;
+    procedure SetFollowRedirects(_followRedirects: boolean);
 
     procedure GenEvent_OnHttpClientContentResult(Obj: TObject; content: RawByteString);
     procedure GenEvent_OnHttpClientCodeResult(Obj: TObject; code: integer);
@@ -1125,8 +1126,6 @@ type
   jEditText = class(jVisualControl)
   private
     FActionIconIdentifier: string;
-    FOnActionIconTouchUp: TEditTextOnActionIconTouchUp;
-    FOnActionIconTouchDown: TEditTextOnActionIconTouchDown;
     FInputTypeEx: TInputTypeEx;
     FHint     : string;
     FMaxTextLength : integer;
@@ -1144,8 +1143,10 @@ type
     FOnBackPressed : TOnNotify; // by ADiV
     FOnChange : TOnChange;
     FOnChanged : TOnChange;
-    FEditable: boolean;
+    FOnActionIconTouchUp: TEditTextOnActionIconTouchUp;
+    FOnActionIconTouchDown: TEditTextOnActionIconTouchDown;
 
+    FEditable: boolean;
     FTextAlignment: TTextAlignment;
     FCloseSoftInputOnEnter: boolean;
     FCapSentence: boolean;
@@ -1275,6 +1276,7 @@ type
     function IsEmpty(): boolean;
 
     procedure ApplyDrawableXML(_xmlIdentifier: string);
+    procedure SetImeKeyEnterLabel(_label: string);
 
     // Property
     property CursorPos : TXY        read GetCursorPos  write SetCursorPos;
@@ -1321,7 +1323,6 @@ type
     property ActionIconIdentifier: string read FActionIconIdentifier write SetActionIconIdentifier;
     property OnActionIconTouchUp: TEditTextOnActionIconTouchUp read FOnActionIconTouchUp write FOnActionIconTouchUp;
     property OnActionIconTouchDown: TEditTextOnActionIconTouchDown read FOnActionIconTouchDown write FOnActionIconTouchDown;
-
 
   end;
 
@@ -5838,6 +5839,13 @@ begin
      jni_proc_t(gApp.jni.jEnv, FjObject, 'ApplyDrawableXML', _xmlIdentifier);
 end;
 
+procedure jEditText.SetImeKeyEnterLabel(_label: string);
+begin
+  //in designing component state: set value here...
+  if FInitialized then
+     jEditText_SetImeKeyEnterLabel(gApp.jni.jEnv, FjObject, _label);
+end;
+
 procedure jEditText.GenEvent_EditTextOnActionIconTouchUp(Sender:TObject;textContent:string);
 begin
   if Assigned(FOnActionIconTouchUp) then FOnActionIconTouchUp(Sender,textContent);
@@ -8499,6 +8507,13 @@ begin
   //in designing component state: result value here...
   if FInitialized then
    Result := jni_func_tt_out_t(gApp.jni.jEnv, FjObject, 'PostJSONData', _strURI ,_jsonData);
+end;
+
+procedure jHttpClient.SetFollowRedirects(_followRedirects: boolean);
+begin
+  //in designing component state: set value here...
+  if FInitialized then
+     jHttpClient_SetFollowRedirects(gApp.jni.jEnv, FjObject, _followRedirects);
 end;
 
 { jSMTPClient }

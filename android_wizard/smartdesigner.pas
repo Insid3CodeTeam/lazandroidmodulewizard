@@ -848,6 +848,8 @@ var
   TargetBuildFileName : string;
 begin
 
+  strTargetApi:= IntTostr(targetApi);
+
   buildSystem:= LazarusIDE.ActiveProject.CustomData['BuildSystem'];
 
   strList:= TStringList.Create;
@@ -937,17 +939,39 @@ begin
     SaveToFile(targetpath);
   end;
 
-  // Delete <uses-sdk
   strList.Clear;
   strList.LoadFromFile(FPathToAndroidProject+'AndroidManifest.xml');
 
-  for i := 0 to strList.Count - 1 do
-   if pos('<uses-sdk', strList.Strings[i]) <> 0 then
-   begin
-     strList.Delete(i);
-     strList.SaveToFile(FPathToAndroidProject+'AndroidManifest.xml');
-     break;
-   end;
+  if LazarusIDE.ActiveProject.CustomData['BuildSystem'] = 'Gradle' then  // Delete <uses-sdk
+  begin
+    if Pos('<uses-sdk', strList.Text) > 0 then
+    begin
+      for i := 0 to strList.Count - 1 do
+      begin
+        if Pos('<uses-sdk', strList.Strings[i]) > 0 then
+        begin
+          strList.Delete(i);
+          strList.SaveToFile(FPathToAndroidProject+'AndroidManifest.xml');
+          break;
+        end;
+      end;
+    end;
+  end
+  else //Ant builder need it.....
+  begin
+    if Pos('<uses-sdk', strList.Text) <= 0 then
+    begin
+       for i := 0 to strList.Count - 1 do
+       begin
+         if Pos('<uses-permission', strList.Strings[i]) > 0 then
+         begin
+           strList.Insert(i, '    <uses-sdk android:minSdkVersion="'+IntToStr(minsdkApi)+'" android:targetSdkVersion="'+strTargetApi+'"/>');
+           strList.SaveToFile(FPathToAndroidProject+'AndroidManifest.xml');
+           break;
+         end;
+       end;
+    end
+  end;
 
   if (FSupport) or (Pos('AppCompat', FAndroidTheme) > 0) then
   begin
@@ -1009,7 +1033,46 @@ begin
        strList.SaveToFile(FPathToAndroidProject+'AndroidManifest.xml');
   end;*)
 
-  strTargetApi:= IntTostr(targetApi);
+  strList.Clear;
+  strList.LoadFromFile(FPathToAndroidProject+'AndroidManifest.xml');
+  if Pos('ScopedStorage', strList.Text) <= 0 then
+  begin
+    for i := 0 to strList.Count - 1 do
+    begin
+        if Pos('<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE', strList.Strings[i]) > 0 then
+        begin
+          strList.Strings[i]:= '    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:remove="android:maxSdkVersion" tools:ignore="ScopedStorage"/>';
+
+          if Pos('MANAGE_EXTERNAL_STORAGE', strList.Text) <= 0 then
+          begin
+            strList.Insert(i, '    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>');
+          end;
+
+          strList.SaveToFile(FPathToAndroidProject+'AndroidManifest.xml');
+          break;
+        end;
+    end;
+  end;
+
+  strList.Clear;
+  strList.LoadFromFile(FPathToAndroidProject+'AndroidManifest.xml');
+  tempStr:= strList.Text;
+  if Pos('xmlns:tools=', strList.Text) <= 0 then
+  begin
+    tempStr:= StringReplace(tempStr, 'xmlns:android="http://schemas.android.com/apk/res/android"', 'xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools"', [rfReplaceAll,rfIgnoreCase]);
+    strList.Text:= tempStr;
+    strList.SaveToFile(FPathToAndroidProject+'AndroidManifest.xml');
+  end;
+
+  strList.Clear;
+  strList.LoadFromFile(FPathToAndroidProject+'AndroidManifest.xml');
+  tempStr:= strList.Text;
+  if Pos('QUERY_ALL_PACKAGES', strList.Text) > 0 then
+  begin
+    tempStr:= StringReplace(tempStr, '<uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>', '', [rfReplaceAll,rfIgnoreCase]);
+    strList.Text:= tempStr;
+    strList.SaveToFile(FPathToAndroidProject+'AndroidManifest.xml');
+  end;
 
   strList.Clear;
   strList.Add('<?xml version="1.0" encoding="UTF-8"?>');
