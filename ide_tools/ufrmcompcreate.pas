@@ -17,6 +17,9 @@ type
   TFrmCompCreate = class(TForm)
     BitBtn1: TBitBtn;
     BitBtnJAR: TBitBtn;
+    EditMainUnit: TEdit;
+    GroupBoxJavaClass: TGroupBox;
+    GroupBoxMainUnit: TGroupBox;
     Memo1: TMemo;
     MenuItem1: TMenuItem;
     MenuItem10: TMenuItem;
@@ -42,7 +45,9 @@ type
     Panel2: TPanel;
     PopupMenuDraftCode: TPopupMenu;
     PopupMenuRegister: TPopupMenu;
+    RadioGroupPasInterface: TRadioGroup;
     SpeedButton1: TSpeedButton;
+    SpeedButton2: TSpeedButton;
     StatusBar1: TStatusBar;
     SynJavaSyn1: TSynJavaSyn;
     SynMemo1: TSynMemo;
@@ -57,7 +62,9 @@ type
     procedure FormDestroy(Sender: TObject);
     procedure PopupMenu1Close(Sender: TObject);
     procedure PopupMenu2Close(Sender: TObject);
+    procedure RadioGroupPasInterfaceSelectionChanged(Sender: TObject);
     procedure SpeedButton1Click(Sender: TObject);
+    procedure SpeedButton2Click(Sender: TObject);
   private
     { private declarations }
     FProjectModel: string;
@@ -128,11 +135,10 @@ type
     function GetNativePascalSignature(const methodNative: string; out eventname: string; out outType: string): string;
     function GetNativeOutPascalReturnInit(ptype: string): string;
 
-    procedure GetNativeMethodInterface(jclassname: string; nativeMethod: string; namingBypass: string; MemoLines: TStrings);
-
-    function GetNativeMethod(selList: TStringList; out namingBypass: string): string;
     procedure GetNativeMethodList(selList: TStringList; nativeEventMethodList: TStringList; namingBypassList: TStringList);
     procedure GetNativeMethodInterfaceList(jclassname: string; nativeMethod: TStringList; namingBypass: TStringList; MemoLines: TStrings);
+
+    procedure ProduceImportsDictionary();
 
   public
     { public declarations }
@@ -1222,29 +1228,6 @@ begin
 end;
 
 //public native void pOnSpinnerItemSeleceted(long pasobj, int position, String caption); //Spinner
-function TFrmCompCreate.GetNativeMethod(selList: TStringList; out namingBypass: string): string;
-var
-  found: boolean;
-  i: integer;
-  aux: string;
-begin
-    Result:= '';
-    if selList.Text = '' then Exit;
-    found:= False;
-    i:= 0;
-    while (not found) and (i < selList.Count) do
-    begin
-       if Pos(' native ', selList.Strings[i]) > 0 then
-       begin
-          aux:= selList.Strings[i];
-          Result:= SplitStr(aux, '//');
-          namingBypass:= Trim(aux);
-          found:= True;
-       end;
-       Inc(i);
-    end
-end;
-
 procedure TFrmCompCreate.GetNativeMethodList(selList: TStringList; nativeEventMethodList: TStringList; namingBypassList: TStringList);
 var
   i: integer;
@@ -1297,7 +1280,6 @@ begin
      if auxList.Text = '' then auxList.Text:= SynMemo1.Text; //java class code...
      if auxList.Text = '' then Exit;
 
-
 //     if not Self.FIsKotlin then
         clsName:= Trim(GetJavaClassName(auxList));
   //   else
@@ -1314,10 +1296,10 @@ begin
 
      //GetNativeMethodInterface(clsName,nativeEventMethod,namingBypass, SynMemo2.Lines);
      if nativeEventMethodList.Count > 0 then
-         GetNativeMethodInterfaceList(clsName,
-                                     nativeEventMethodList,
-                                     namingBypassList,
-                                     SynMemo2.Lines)
+             GetNativeMethodInterfaceList(clsName,
+                                       nativeEventMethodList,
+                                       namingBypassList,
+                                       SynMemo2.Lines)
      else ShowMessage('Sorry... Empty Native Method List...');
 
      nativeEventMethodList.Free;
@@ -1740,6 +1722,22 @@ begin
   end;
 end;
 
+procedure TFrmCompCreate.RadioGroupPasInterfaceSelectionChanged(Sender: TObject);
+begin
+  if RadioGroupPasInterface.ItemIndex <> 0 then
+  begin
+    ProduceImportsDictionary();
+    GroupBoxMainUnit.Visible:= True;
+    GroupBoxJavaClass.Visible:= True;
+  end
+  else
+  begin
+     GroupBoxMainUnit.Visible:= False;
+     GroupBoxJavaClass.Visible:= False;
+  end;
+
+end;
+
 procedure TFrmCompCreate.SpeedButton1Click(Sender: TObject);
 begin
   ShowMessage('About Android Bridges components palettes' + sLineBreak +
@@ -1750,6 +1748,17 @@ begin
             '(here we put bridges for generics "online" jar libraries)' + sLineBreak + sLineBreak +
             '"Android Bridges AppCompat" support only "Gradle" prefix class "js" or "K" for Kotlin' + sLineBreak +
             '(here we put bridges for Android AppCompat/Material libraries and Koltlin based component)');
+end;
+
+procedure TFrmCompCreate.SpeedButton2Click(Sender: TObject);
+begin
+  OpenDialog1.DefaultExt:= '.java';
+  OpenDialog1.Filter:= 'Java|*.java';
+  if OpenDialog1.Execute then
+  begin
+     SynMemo1.Lines.Clear;
+     SynMemo1.Lines.LoadFromFile(OpenDialog1.FileName);
+  end;
 end;
 
 procedure TFrmCompCreate.FormCreate(Sender: TObject);
@@ -2249,6 +2258,39 @@ begin
 
 
 end;
+
+procedure TFrmCompCreate.ProduceImportsDictionary();
+var
+    imports: TStringList;
+    auxList: TStringList;
+    auxStr: string;
+    i: integer;
+begin
+  auxList:= TStringList.Create;
+  Imports:= TStringList.Create;
+
+  Imports.Sorted:= True;
+  Imports.Duplicates:= dupIgnore;
+
+  auxList.LoadFromFile(FPathToJavaTemplates+DirectorySeparator+'Controls.java');
+  for i:= 0 to auxList.Count-1 do
+  begin
+      auxStr:= auxList.Strings[i];
+      if auxStr <> '' then
+      begin
+        if Pos('import ', auxStr) > 0 then
+        begin
+           Imports.Add( Trim(auxStr) );
+        end;
+      end;
+      Imports.SaveToFile(FPathToJavaTemplates+DirectorySeparator+'Controls.imports');
+  end;
+
+  Imports.Free;
+  auxList.Free;
+
+end;
+
 
 procedure TFrmCompCreate.FormDestroy(Sender: TObject);
 begin
@@ -3398,7 +3440,7 @@ begin
   method:= Trim(method);            //pOnChronometerTick
 
   signature:= '(env:PJNIEnv;this:JObject';
-  if Length(params) > 3 then
+  if Length(params) > 3  then
   begin
     listParam.Delimiter:= ',';
     listParam.StrictDelimiter:= True;
@@ -3406,22 +3448,37 @@ begin
     for i:= 0 to listParam.Count-1 do
     begin
       if Pos('pasobj', listParam.Strings[i]) > 0 then
-        signature:= signature + ';'+ 'Sender:TObject'
+         signature:= signature + ';'+ 'Sender:TObject'
       else
-        signature:= signature + ';' + GetNativePascalTypeSignature(Trim(listParam.Strings[i]));
+         signature:= signature + ';' + GetNativePascalTypeSignature(Trim(listParam.Strings[i]));
     end;
   end;
 
-
-  if fTypereturn = 'void' then
-    Result:= 'procedure Java_Event_'+method+signature+');'
-  else
+  if Self.RadioGroupPasInterface.ItemIndex = 0 then //GUI
   begin
-    outType:= GetNativePascalFuncResultHack(fTypereturn) ;
-    Result:= 'function Java_Event_'+method+signature+'):'+GetNativePascalTypeSignature(fTypereturn)+';';
+    if fTypereturn = 'void' then
+      Result:= 'procedure Java_Event_'+method+signature+');'
+    else
+    begin
+      outType:= GetNativePascalFuncResultHack(fTypereturn) ;
+      Result:= 'function Java_Event_'+method+signature+'):'+GetNativePascalTypeSignature(fTypereturn)+';';
+    end;
+  end
+  else //raw jni/NoGUI
+  begin
+    if fTypereturn = 'void' then
+      Result:= 'procedure Java_Call_'+method+signature+');'
+    else
+    begin
+      outType:= GetNativePascalFuncResultHack(fTypereturn) ;
+      Result:= 'function Java_Call_'+method+signature+'):'+GetNativePascalTypeSignature(fTypereturn)+';';
+    end;
   end;
 
-  eventname:= Copy(method, 2, MaxInt);
+  if Self.RadioGroupPasInterface.ItemIndex = 0 then  //GUI
+     eventname:= Copy(method, 2, MaxInt) //drop 'p'
+  else
+     eventname:= method;  //raw jni
 
   listParam.Free;
 end;
@@ -3488,172 +3545,14 @@ begin
   else if ptype = 'TDynArrayOfDouble'  then Result:= 'nil'
   else if ptype = 'TDynArrayOfJByte'   then Result:= 'nil'
   else if ptype = 'boolean' then Result:= 'False'
-  else if ptype = 'string'  then Result:= '';
-end;
-
-
-procedure TFrmCompCreate.GetNativeMethodInterface(jclassname: string; nativeMethod: string; namingBypass: string; MemoLines: TStrings);
-var
-  signature, eventname, params, pasSignature, pasParams: string;
-  listBody, listParam: TStringList;
-  p1, p2, i, count: integer;
-  aux, outPascalReturnType, smallEventName: string;
-begin
-  listParam:= TStringList.Create;
-  listParam.Delimiter:= ';';
-  listParam.StrictDelimiter:= True;
-  listBody:= TStringList.Create;
-  outPascalReturnType:= ''; //jString, jBoolean, integer, single
-  signature:= GetNativePascalSignature(nativeMethod, eventname, outPascalReturnType);
-  p1:= Pos('(', signature);
-  p2:= Pos(')', signature);
-  listParam.DelimitedText:= Copy(signature, p1+1,p2-(p1+1)); // env:PJNIEnv;this:JObject;Obj:TObject;state:integer;phoneNumber:jString
-
-  count:= listParam.Count;
-
-  smallEventName:= StringReplace(eventname,namingBypass,'',[rfIgnoreCase, rfReplaceAll]);
-
-  pasSignature:='Sender:TObject';
-  params:= 'Sender';
-  pasParams:= 'Sender';
-
-  //MemoLines.Clear;
-  MemoLines.Add('//----------------------------------------------- Laz_And_Controls_Events.pas ----------------------------------');
-  MemoLines.Add(' ');
-  MemoLines.Add('interface');
-  MemoLines.Add(' ');
-  MemoLines.Add(signature);
-  MemoLines.Add(' ');
-  MemoLines.Add(' ');
-  MemoLines.Add('implementation');
-  MemoLines.Add(' ');
-  MemoLines.Add('uses');
-  MemoLines.Add('  '+Lowercase(Copy(jclassname,2,MaxInt))+';');
-  MemoLines.Add(' ');
-  MemoLines.Add(signature);
-
-  if count > 3 then
-  begin
-    for i:= 3 to count-1 do
-    begin
-       //Sender:TObject;state:integer;phoneNumber:string
-       aux:= listParam.Strings[i];
-       pasSignature:= pasSignature + ';'+ TryNativeConvertSignature(aux);
-       pasParams:=pasParams + ',' +GetNativeParamName(aux);
-       params:= params + ','+ TryNativeConvertParam(aux);
-    end;
-  end;
-
-  if outPascalReturnType <> '' then
-  begin
-    MemoLines.Add('var');
-    MemoLines.Add('  outReturn: '+outPascalReturnType+';');
-  end;
-
-  MemoLines.Add('begin');
-  MemoLines.Add('  gApp.Jni.jEnv:= env;');
-  MemoLines.Add('  if gApp.Jni.jThis = nil then gApp.Jni.jThis := this;');
-
-  if outPascalReturnType <> '' then
-  begin
-    MemoLines.Add('  outReturn:='+GetNativeOutPascalReturnInit(outPascalReturnType)+';');
-  end;
-
-  MemoLines.Add('  if Sender is '+jclassname+' then');
-  MemoLines.Add('  begin');
-  if outPascalReturnType = '' then
-    MemoLines.Add('    '+jclassname+'(Sender).GenEvent_'+eventname+'('+params+');')
-  else
-    MemoLines.Add('    '+jclassname+'(Sender).GenEvent_'+eventname+'('+params+',outReturn);');
-
-  MemoLines.Add('  end;');
-  if outPascalReturnType <> '' then
-  begin
-
-    if outPascalReturnType = 'string' then
-      MemoLines.Add('  Result:=GetJString(env,outReturn);')
-    else if outPascalReturnType = 'boolean' then
-       MemoLines.Add('  Result:=JBool(outReturn);')
-
-    else if outPascalReturnType = 'TDynArrayOfJByte' then
-      MemoLines.Add('  Result:=GetJObjectOfDynArrayOfJByte(env,outReturn);')
-
-    else if outPascalReturnType = 'TDynArrayOfInteger' then
-      MemoLines.Add('  Result:=GetJObjectOfDynArrayOfInteger(env,outReturn);')
-
-    else if outPascalReturnType = 'TDynArrayOfSingle' then
-      MemoLines.Add('  Result:=GetJObjectOfDynArrayOfSingle(env,outReturn);')
-
-    else if outPascalReturnType = 'TDynArrayOfDouble' then
-      MemoLines.Add('  Result:=GetJObjectOfDynArrayOfDouble(env,outReturn);')
-
-    else if outPascalReturnType = 'TDynArrayOfString' then
-      MemoLines.Add('  Result:=GetJObjectOfDynArrayOfString(env,outReturn);')
-
-    else
-      MemoLines.Add('  Result:=outReturn;');
-  end;
-  MemoLines.Add('end;');
-
-  MemoLines.Add(' ');
-  MemoLines.Add(' ');
-  MemoLines.Add(' ');
-  MemoLines.Add('//----------------------------------------------- '+Lowercase(Copy(jclassname,2,MaxInt))+'.pas ----------------------------------');
-  MemoLines.Add(' ');
-  MemoLines.Add('type');
-  MemoLines.Add(' ');
-
-  if outPascalReturnType = '' then
-     MemoLines.Add('T'+eventname+'=procedure('+pasSignature+') of object;')
-  else                                                                        //TryNativeReConvertOutSignature
-     MemoLines.Add('T'+eventname+'=procedure('+pasSignature+';var outReturn:'+outPascalReturnType+') of object;');
-
-  MemoLines.Add(' ');
-  MemoLines.Add(jclassname+' = class');
-  MemoLines.Add('private');
-  MemoLines.Add('  F'+smallEventName+': T'+eventname+';');
-  MemoLines.Add('public');
-
-  if outPascalReturnType = '' then
-    MemoLines.Add('  procedure GenEvent_'+eventname+'('+pasSignature+');')
-  else                                                                                 //TryNativeReConvertOutSignature(
-    MemoLines.Add('  procedure GenEvent_'+eventname+'('+pasSignature+';var outReturn:'+outPascalReturnType+');');
-
-  MemoLines.Add('published');
-  MemoLines.Add('  property '+smallEventName+': T'+eventname+' read F'+smallEventName+' write F'+smallEventName+';');
-  MemoLines.Add('end;');
-
-  MemoLines.Add(' ');
-  MemoLines.Add(' ');
-  MemoLines.Add('implementation');
-  MemoLines.Add(' ');
-  MemoLines.Add(' ');
-
-  if outPascalReturnType = '' then
-    MemoLines.Add('procedure '+jclassname+'.GenEvent_'+eventname+'('+pasSignature+');')
-  else                                                                                              //TryNativeReConvertOutSignature(
-    MemoLines.Add('procedure '+jclassname+'.GenEvent_'+eventname+'('+pasSignature+';var outReturn:'+outPascalReturnType+');');
-
-  MemoLines.Add('begin');
-
-  if outPascalReturnType = '' then
-    MemoLines.Add('  if Assigned(F'+smallEventName+') then F'+smallEventName+'('+pasParams+');')
-  else
-    MemoLines.Add('  if Assigned(F'+smallEventName+') then F'+smallEventName+'('+pasParams+',outReturn);');
-
-  MemoLines.Add('end;');
-
-
-  listParam.Free;
-  listBody.Free;
-
+  else if ptype = 'string'  then Result:= '''''';
 end;
 
 procedure TFrmCompCreate.GetNativeMethodInterfaceList(jclassname: string; nativeMethod: TStringList; namingBypass: TStringList; MemoLines: TStrings);
 var
   signature, outEventname, params, pasSignature, pasParams: string;
   listBody, listParam: TStringList;
-  p1, p2, i, count, j, k: integer;
+  p1, p2, i, count, dx,  j, k: integer;
   aux, outPascalReturnType, smallEventName: string;
 
   LazAndControlsEventsHeader: TStringList;
@@ -3664,7 +3563,7 @@ var
   PasHeaderProcedure: TStringList;
   PasHeaderPublished: TStringList;
   PasBody: TStringList;
-
+  has_pasobj_param: boolean;
 begin
 
   listParam:= TStringList.Create;
@@ -3681,9 +3580,9 @@ begin
   PasHeaderPublished:= TStringList.Create;
   PasBody:= TStringList.Create;
 
+
   for k:= 0 to nativeMethod.Count-1 do
   begin
-
     outPascalReturnType:= ''; //jString, jBoolean, integer, single
     outEventname:='';
 
@@ -3691,30 +3590,74 @@ begin
     listBody.Clear;
 
     signature:= GetNativePascalSignature(nativeMethod.Strings[k], outEventname, outPascalReturnType);
+
+    if Pos('Sender', signature) > 0 then
+         has_pasobj_param:= True;
+
     LazAndControlsEventsHeader.Add(signature);
 
     p1:= Pos('(', signature);
     p2:= Pos(')', signature);
     listParam.DelimitedText:= Copy(signature, p1+1,p2-(p1+1)); // env:PJNIEnv;this:JObject;Obj:TObject;state:integer;phoneNumber:jString
 
-    count:= listParam.Count;
-
     smallEventName:= StringReplace(outEventname,namingBypass.Strings[k],'',[rfIgnoreCase, rfReplaceAll]);
 
-    pasSignature:='Sender:TObject';
-    params:= 'Sender';
-    pasParams:= 'Sender';
+    has_pasobj_param:= False;
+    pasSignature:='';
+
+    params:= '';
+    pasParams:= '';
+    dx:=2;
+    {ex. dx:
+    env:PJNIEnv
+    this:JObject
+
+    x:integer
+    y:integer
+    }
+
+    if has_pasobj_param  then
+    begin
+       pasSignature:='Sender:TObject';
+       params:= 'Sender';
+       pasParams:= 'Sender';
+       dx:= 3;
+    end;
 
     LazAndControlsEventsBody.Add(signature);
-    if count > 3 then
+
+    {ex. dx = 3:
+    env:PJNIEnv
+    this:JObject
+    Sender:TObject
+
+    x:integer
+    y:integer
+    }
+
+    count:= listParam.Count;
+    if count > dx then
     begin
-      for i:= 3 to count-1 do
+      for i:= dx to count-1 do
       begin
-         //Sender:TObject;state:integer;phoneNumber:string
+         //Sender:TObject; x:integer; y:integer    or
+         //x:integer; y:string
          aux:= listParam.Strings[i];
-         pasSignature:= pasSignature + ';'+ TryNativeConvertSignature(aux);
-         pasParams:=pasParams + ',' +GetNativeParamName(aux);
-         params:= params + ','+ TryNativeConvertParam(aux);
+         if pasSignature <> '' then
+             pasSignature:= pasSignature + ';'+ TryNativeConvertSignature(aux)
+         else
+             pasSignature:= TryNativeConvertSignature(aux);
+
+         if pasParams <> '' then
+            pasParams:=pasParams + ',' +GetNativeParamName(aux)
+         else
+            pasParams:= GetNativeParamName(aux);
+
+         if params <> '' then
+           params:= params + ','+ TryNativeConvertParam(aux)
+         else
+           params:= TryNativeConvertParam(aux);
+
       end;
     end;
 
@@ -3725,22 +3668,51 @@ begin
     end;
 
     LazAndControlsEventsBody.Add('begin');
-    LazAndControlsEventsBody.Add('  gApp.Jni.jEnv:= env;');
-    LazAndControlsEventsBody.Add('  gApp.Jni.jThis:= this;');
-
-    if outPascalReturnType <> '' then
+    if Self.RadioGroupPasInterface.ItemIndex = 0 then  //GUI
     begin
-      LazAndControlsEventsBody.Add('  outReturn:='+GetNativeOutPascalReturnInit(outPascalReturnType)+';');
+       LazAndControlsEventsBody.Add('  gApp.Jni.jEnv:= env;');
+       LazAndControlsEventsBody.Add('  gApp.Jni.jThis:= this;');
+    end
+    else  //raw jni/NoGUI
+    begin
+      //LazAndControlsEventsBody.Add('  //'+Self.EditMainUnit.Text+'.EnvJni.Jni.jEnv:= env;');
+      //LazAndControlsEventsBody.Add('  //'+Self.EditMainUnit.Text+'.EnvJni.Jni.jThis:= this;');
     end;
 
-    LazAndControlsEventsBody.Add('  if Sender is '+jclassname+' then');
-    LazAndControlsEventsBody.Add('  begin');
-    if outPascalReturnType = '' then
-      LazAndControlsEventsBody.Add('    '+jclassname+'(Sender).GenEvent_'+outEventname+'('+params+');')
-    else
-      LazAndControlsEventsBody.Add('    '+jclassname+'(Sender).GenEvent_'+outEventname+'('+params+',outReturn);');
+    if Self.RadioGroupPasInterface.ItemIndex = 0 then  //GUI
+    begin
+      if outPascalReturnType <> '' then
+      begin
+        LazAndControlsEventsBody.Add('  outReturn:='+GetNativeOutPascalReturnInit(outPascalReturnType)+';');
+      end;
+    end;
 
-    LazAndControlsEventsBody.Add('  end;');
+    if Self.RadioGroupPasInterface.ItemIndex = 0 then    //GUI
+    begin
+
+      LazAndControlsEventsBody.Add('  if Sender is '+jclassname+' then');
+      LazAndControlsEventsBody.Add('  begin');
+
+      if outPascalReturnType = '' then
+        LazAndControlsEventsBody.Add('    '+jclassname+'(Sender).GenEvent_'+outEventname+'('+params+');')
+      else
+        LazAndControlsEventsBody.Add('    '+jclassname+'(Sender).GenEvent_'+outEventname+'('+params+',outReturn);');
+
+      LazAndControlsEventsBody.Add('  end;');
+
+    end
+    else //Raw jni / NoGUI
+    begin
+      //LazAndControlsEventsBody.Add('//if Sender is '+jclassname+' then');
+      //LazAndControlsEventsBody.Add('//begin');
+      if outPascalReturnType = '' then
+        LazAndControlsEventsBody.Add('   '+EditMainUnit.Text+'.'+outEventname+'('+params+');')
+      else
+        LazAndControlsEventsBody.Add('    outReturn:= '+EditMainUnit.Text+'.'+outEventname+'('+params+');');
+
+      //LazAndControlsEventsBody.Add('//end;');
+    end;
+
     if outPascalReturnType <> '' then
     begin
 
@@ -3770,48 +3742,91 @@ begin
 
     LazAndControlsEventsBody.Add('end;');
 
-    if outPascalReturnType = '' then
-       PasHeaderType.Add('T'+outEventname+'=procedure('+pasSignature+') of object;')
-    else                                                                        //TryNativeReConvertOutSignature
-       PasHeaderType.Add('T'+outEventname+'=procedure('+pasSignature+';var outReturn:'+outPascalReturnType+') of object;');
+    if Self.RadioGroupPasInterface.ItemIndex = 0 then //GUI
+    begin
+      if outPascalReturnType = '' then
+         PasHeaderType.Add('T'+outEventname+'=procedure('+pasSignature+') of object;')
+      else                                                                        //TryNativeReConvertOutSignature
+         PasHeaderType.Add('T'+outEventname+'=procedure('+pasSignature+';var outReturn:'+outPascalReturnType+') of object;');
+    end
+    else //raw jni  / NoGUI
+    begin
+      if outPascalReturnType = '' then
+         PasHeaderType.Add('procedure '+outEventname+'('+pasSignature+');')
+      else                                                                        //TryNativeReConvertOutSignature
+         PasHeaderType.Add('function '+outEventname+'('+pasSignature+'): '+ outPascalReturnType+';');
+    end;
 
-    //jclassname = class
-    //private;
-    PasHeaderProperty.Add('  F'+smallEventName+': T'+outEventname+';');
+    if Self.RadioGroupPasInterface.ItemIndex = 0 then //GUI
+    begin
 
-    //public;
-    if outPascalReturnType = '' then
-      PasHeaderProcedure.Add('  procedure GenEvent_'+outEventname+'('+pasSignature+');')
-    else                                                                                 //TryNativeReConvertOutSignature(
-      PasHeaderProcedure.Add('  procedure GenEvent_'+outEventname+'('+pasSignature+';var outReturn:'+outPascalReturnType+');');
+      //jclassname = class
+      //private;
+      PasHeaderProperty.Add('  F'+smallEventName+': T'+outEventname+';');
 
-    //published
-    PasHeaderPublished.Add('  property '+smallEventName+': T'+outEventname+' read F'+smallEventName+' write F'+smallEventName+';');
+      //public;
+      if outPascalReturnType = '' then
+        PasHeaderProcedure.Add('  procedure GenEvent_'+outEventname+'('+pasSignature+');')
+      else                                                                                 //TryNativeReConvertOutSignature(
+        PasHeaderProcedure.Add('  procedure GenEvent_'+outEventname+'('+pasSignature+';var outReturn:'+outPascalReturnType+');');
 
-    //implementation;
-    if outPascalReturnType = '' then
-      PasBody.Add('procedure '+jclassname+'.GenEvent_'+outEventname+'('+pasSignature+');')
-    else                                                                                              //TryNativeReConvertOutSignature(
-      PasBody.Add('procedure '+jclassname+'.GenEvent_'+outEventname+'('+pasSignature+';var outReturn:'+outPascalReturnType+');');
+      //published
+      PasHeaderPublished.Add('  property '+smallEventName+': T'+outEventname+' read F'+smallEventName+' write F'+smallEventName+';');
 
-    PasBody.Add('begin');
+      //implementation;
+      if outPascalReturnType = '' then
+        PasBody.Add('procedure '+jclassname+'.GenEvent_'+outEventname+'('+pasSignature+');')
+      else                                                                                              //TryNativeReConvertOutSignature(
+        PasBody.Add('procedure '+jclassname+'.GenEvent_'+outEventname+'('+pasSignature+';var outReturn:'+outPascalReturnType+');');
 
-    if outPascalReturnType = '' then
-      PasBody.Add('  if Assigned(F'+smallEventName+') then F'+smallEventName+'('+pasParams+');')
-    else
-      PasBody.Add('  if Assigned(F'+smallEventName+') then F'+smallEventName+'('+pasParams+',outReturn);');
+      PasBody.Add('begin');
 
-    PasBody.Add('end;');
+      if outPascalReturnType = '' then
+        PasBody.Add('  if Assigned(F'+smallEventName+') then F'+smallEventName+'('+pasParams+');')
+      else
+        PasBody.Add('  if Assigned(F'+smallEventName+') then F'+smallEventName+'('+pasParams+',outReturn);');
 
-  end;
+      PasBody.Add('end;');
+    end; //not raw jni
+
+  end;//for
 
   MemoLines.Clear;
 
   MemoLines.Add(' ');
-  MemoLines.Add('//-------------------Laz_And_Controls_Events.pas--------------------------------------------');
-  MemoLines.Add('//-------------------(or Laz_And_Controls.pas )---------------------------------------------');
+  if Self.RadioGroupPasInterface.ItemIndex = 0 then
+  begin
+    MemoLines.Add('//------------------ Laz_And_Controls_Events.pas -------------------------------------------');
+    MemoLines.Add('//------------------(or Laz_And_Controls.pas ) ---------------------------------------------');
+  end
+  else
+  begin
+    MemoLines.Add('//------------------- java_call_bridge_'+jclassname+'.pas  ----------------------');
+  end;
+
+  if Self.RadioGroupPasInterface.ItemIndex <> 0 then
+      MemoLines.Add('unit java_call_bridge_'+jclassname+';');
+
   MemoLines.Add(' ');
-  MemoLines.Add('//interface');
+  if Self.RadioGroupPasInterface.ItemIndex <> 0 then
+  begin
+       MemoLines.Add('{$mode delphi} ');
+       MemoLines.Add(' ');
+  end;
+
+  if Self.RadioGroupPasInterface.ItemIndex <> 0 then
+    MemoLines.Add('interface')
+  else
+    MemoLines.Add('//interface');
+
+  MemoLines.Add(' ');
+  if Self.RadioGroupPasInterface.ItemIndex <> 0 then
+  begin
+    MemoLines.Add('uses');
+    MemoLines.Add('  jni, jnihelper;');
+  end
+  else
+    MemoLines.Add('//uses');
   MemoLines.Add(' ');
   for j:= 0 to  (LazAndControlsEventsHeader.Count-1) do
   begin
@@ -3819,10 +3834,22 @@ begin
   end;
 
   MemoLines.Add(' ');
-  MemoLines.Add('//implementation');
+  if Self.RadioGroupPasInterface.ItemIndex <> 0 then
+    MemoLines.Add('implementation')
+  else
+    MemoLines.Add('//implementation');
+
   MemoLines.Add(' ');
-  MemoLines.Add('//uses');
-  MemoLines.Add('  '+Lowercase(Copy(jclassname,2,MaxInt))+';');
+  if Self.RadioGroupPasInterface.ItemIndex <> 0 then
+    MemoLines.Add('uses')
+  else
+    MemoLines.Add('//uses');
+
+  if Self.RadioGroupPasInterface.ItemIndex = 0 then
+     MemoLines.Add('  '+Lowercase(Copy(jclassname,2,MaxInt))+';')
+  else
+     MemoLines.Add('  '+EditMainUnit.Text+';');
+
   MemoLines.Add(' ');
 
   for j:= 0 to  (LazAndControlsEventsBody.Count-1) do
@@ -3831,47 +3858,85 @@ begin
   end;
 
   MemoLines.Add(' ');
+  MemoLines.Add('end. ');
+
   MemoLines.Add(' ');
-  MemoLines.Add('//--------------------'+Lowercase(Copy(jclassname,2,MaxInt))+'.pas ------------------------');
+  if Self.RadioGroupPasInterface.ItemIndex = 0 then
+     MemoLines.Add('//--------------------'+Lowercase(Copy(jclassname,2,MaxInt))+'.pas -------')
+  else
+     MemoLines.Add('//--------------------'+EditMainUnit.Text+'.pas ------------------------');
+
+  MemoLines.Add('//' + EditMainUnit.Text+'.pas ');
   MemoLines.Add(' ');
   MemoLines.Add('//interface');
   MemoLines.Add(' ');
   MemoLines.Add('//type');
+  //if raw jni
+  if Self.RadioGroupPasInterface.ItemIndex <> 0 then
+  begin
+  //MemoLines.Add('//TEnvJni=record');
+  //MemoLines.Add('//  jEnv: PJNIEnv;');  //a pointer reference to the JNI environment,
+  //MemoLines.Add('//  jThis: jObject;');  //a reference to the object making this call (or class if static-> lamwrawlib1.java).
+  //MemoLines.Add('//end;');
+  //MemoLines.Add(' ');
+  //MemoLines.Add('//var');
+  //MemoLines.Add('   //EnvJni: TEnvJni');
+  end;
 
   for j:= 0 to (PasHeaderType.Count-1) do
   begin
      MemoLines.Add(PasHeaderType.Strings[j]);
   end;
 
-  MemoLines.Add(' ');
-  MemoLines.Add('//'+jclassname+' = class');
-
-  MemoLines.Add('//private');
-  for j:= 0 to (PasHeaderProperty.Count-1) do
+  if Self.RadioGroupPasInterface.ItemIndex = 0 then
   begin
-    MemoLines.Add(PasHeaderProperty.Strings[j]);
-  end;
 
-  MemoLines.Add('//public');
-  for j:= 0 to (PasHeaderProcedure.Count-1) do
-  begin
-    MemoLines.Add(PasHeaderProcedure.Strings[j]);
-  end;
+    MemoLines.Add(' ');
+    MemoLines.Add('//'+jclassname+' = class');
 
-  MemoLines.Add('//published');
-  for j:= 0 to (PasHeaderPublished.Count-1) do
-  begin
-    MemoLines.Add(PasHeaderPublished.Strings[j]);
-  end;
+    MemoLines.Add('//private');
+    for j:= 0 to (PasHeaderProperty.Count-1) do
+    begin
+      MemoLines.Add(PasHeaderProperty.Strings[j]);
+    end;
 
-  MemoLines.Add('//end;');
-  MemoLines.Add(' ');
-  MemoLines.Add(' ');
-  MemoLines.Add('//implementation');
-  MemoLines.Add(' ');
-  for j:= 0 to (PasBody.Count-1) do
+    MemoLines.Add('//public');
+    for j:= 0 to (PasHeaderProcedure.Count-1) do
+    begin
+      MemoLines.Add(PasHeaderProcedure.Strings[j]);
+    end;
+
+    MemoLines.Add('//published');
+    for j:= 0 to (PasHeaderPublished.Count-1) do
+    begin
+      MemoLines.Add(PasHeaderPublished.Strings[j]);
+    end;
+
+    MemoLines.Add('//end;');
+    MemoLines.Add(' ');
+    MemoLines.Add(' ');
+    MemoLines.Add('//implementation');
+    MemoLines.Add(' ');
+    for j:= 0 to (PasBody.Count-1) do
+    begin
+      MemoLines.Add(PasBody.Strings[j]);
+    end;
+    MemoLines.Add('//end.');
+  end
+  else //raw jni
   begin
-    MemoLines.Add(PasBody.Strings[j]);
+     MemoLines.Add(' ');
+     MemoLines.Add('//implementation');
+     MemoLines.Add(' ');
+      for j:= 0 to (PasHeaderType.Count-1) do
+      begin
+         MemoLines.Add(PasHeaderType.Strings[j]);
+         MemoLines.Add('begin');
+         MemoLines.Add('   //');
+         MemoLines.Add('end;');
+      end;
+      MemoLines.Add(' ');
+      MemoLines.Add('//end.');
   end;
 
   LazAndControlsEventsHeader.Free;

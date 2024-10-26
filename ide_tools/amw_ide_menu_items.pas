@@ -9,7 +9,7 @@ uses
   uformsettingspaths{, lazandroidtoolsexpert}, ufrmEditor, ufrmCompCreate,
   uFormBuildFPCCross, {uFormGetFPCSource,} uimportjavastuff, uimportjavastuffchecked,
   uimportcstuff, process, Laz2_DOM, laz2_XMLRead, uformimportlamwstuff,
-  unitformimportpicture, uformapksigner, unitFormExportProjectAsTemplate;
+  unitformimportpicture, uformapksigner, unitFormExportProjectAsTemplate,  lamwexplorer, LamwToolKit;
 
 procedure StartPathTool(Sender: TObject);
 procedure StartLateTool(Sender: TObject);     //By Thierrydijoux!
@@ -50,6 +50,37 @@ begin
   FormGetFPCSource.ShowModal;
 end;
 }
+
+procedure RunLamwExplorer(Sender: TObject);
+var
+  Project: TLazProject;
+begin
+ Project := LazarusIDE.ActiveProject;
+  if Assigned(Project) and (Project.CustomData.Values['LAMW'] <> '') then
+  begin
+      if LExplorer = nil then
+      begin
+        LExplorer := TLExplorer.Create(Application);
+      end;
+      LExplorer.Show;
+  end
+  else
+    ShowMessage('The active project is not LAMW project!');
+end;
+
+procedure RunLamwToolKit(Sender: TObject);
+var
+  Project: TLazProject;
+begin
+   Project := LazarusIDE.ActiveProject;
+   if Assigned(Project) and (Project.CustomData.Values['LAMW'] <> '') then
+   begin
+     ToolKit := TToolKit.Create(Application);
+     ToolKit.ShowModal;
+   end
+   else
+     ShowMessage('The active project is not LAMW project!');
+end;
 
 procedure StartPathTool(Sender: TObject);
 begin
@@ -298,6 +329,10 @@ begin
         15: Result:= 'android-28';
         16: Result:= 'android-29';
         17: Result:= 'android-30';
+        18: Result:= 'android-31';
+        19: Result:= 'android-32';
+        20: Result:= 'android-33';
+        21: Result:= 'android-34';
      end;
   end;
 end;
@@ -501,6 +536,50 @@ begin
   end;
 end;
 
+function TryProduceGradleVersion(pathToGradle: string): string;
+var
+   AProcess: TProcess;
+   AStringList: TStringList;
+   gradle, ext, version: string;
+   i, p: integer;
+begin
+  version:= '';
+  ext:='.bat';
+  {$IFDEF linux}
+  ext:='';
+  {$Endif}
+
+  {$IFDEF darwin}
+     ext:='';
+  {$Endif}
+  gradle:= 'gradle'  + ext;
+  AStringList:= TStringList.Create;
+  AProcess := TProcess.Create(nil);
+  AProcess.Executable := pathToGradle + PathDelim + 'bin' + PathDelim + gradle;  //C:\android\gradle-6.8.3\bin\gradle.bat
+  AProcess.Options:=AProcess.Options + [poWaitOnExit, poUsePipes, poNoConsole];
+  AProcess.Parameters.Add('-version');
+  AProcess.Parameters.Add('>');
+  AProcess.Parameters.Add(pathToGradle + PathDelim + 'version.txt');
+  AProcess.Execute;
+
+  AStringList.LoadFromFile(pathToGradle + PathDelim + 'version.txt');
+  i:= 0;
+  while (version='') and (i < AStringList.Count) do
+  begin
+     p:= Pos('Gradle', AStringList.Strings[i] );
+     if p > 0 then
+     begin
+        version:=  AStringList.Strings[i];
+     end;
+     i:= i +1;
+  end;
+  Result:= Trim(Copy(version, p+6, 10));
+  AStringList.Text:= Result;
+  AStringList.SaveToFile(pathToGradle + PathDelim + 'version.txt');  // This can be ommitted
+  AProcess.Free;
+  AStringList.Free;
+end;
+
 procedure ConvertToAppCompat(paramTheme: string);
 var
    Project: TLazProject;
@@ -609,8 +688,18 @@ begin
           gradlePath:= ReadString('NewProject','PathToGradle', '');
           if gradlePath <> '' then     // C:\adt32\gradle-4.4.1
           begin
-             p:= Pos('dle-', gradlePath);
-             gradleVersion:=  Copy(gradlePath, p+4, MaxInt);
+            //p:= Pos('dle-', gradlePath);
+            //gradleVersion:= Copy(gradlePath, p+4, MaxInt);
+            if not FileExists(gradlePath + PathDelim + 'version.txt') then
+            begin
+               gradleVersion:=  TryProduceGradleVersion(gradlePath);
+            end
+            else
+            begin
+              list.Clear;
+              list.LoadFromFile(gradlePath + PathDelim + 'version.txt');
+              gradleVersion:= Trim(list.Text);
+            end;
           end;
 
           list.Clear;
@@ -687,9 +776,6 @@ var
   ini_string_result: string;
   
 begin
-
-
-
   Project:= LazarusIDE.ActiveProject;
   if Assigned(Project) and (Project.CustomData.Values['LAMW'] <> '' ) then
   begin
@@ -715,8 +801,6 @@ begin
 		   libChip:= 'x86_64'
 		else   
 		libChip:= 'arm'; //dummy
-				
-
        end;
 
        pathToNdk:= Project.CustomData.Values['NdkPath'];  //<Item2 Name="NdkPath" Value="C:\adt32\ndk10e\"/>
@@ -725,10 +809,8 @@ begin
        p:= Pos(DirectorySeparator+'jni', Project.ProjectInfoFile);
        pathToProject:= Copy(Project.ProjectInfoFile, 1, p);
 
-
       with TIniFile.Create(pathToProject+'jni'+DirectorySeparator + 'ImportCStuff.ini') do
-      try	
-		
+      try
         ini_string_result := ReadString('ImportCStuff', 'EditImportC', '');
         if (CompareStr(FormImportCStuff.EditImportC.Text, ini_string_result) <> 0) then
         begin
@@ -753,7 +835,6 @@ begin
            WriteBool('ImportCStuff', 'CheckBoxAllH', FormImportCStuff.CheckBoxAllH.Checked);
         end;		
 
-		
         ini_string_result := ReadString('ImportCStuff', 'EditLibName', '');
         if (CompareStr(FormImportCStuff.EditLibName.Text, ini_string_result) <> 0) then
         begin
@@ -777,8 +858,6 @@ begin
         Free;
       end;
 
-
-
        pathToImportCcode:= Trim(FormImportCStuff.EditImportC.Text);
        pathToImportHCode:= Trim(FormImportCStuff.EditImportH.Text);
 
@@ -795,7 +874,7 @@ begin
        listBackup:= FindAllFiles(pathToNewLib, '*.so', False);
 
        listSaveTo:= TStringList.Create;
-       //------------------
+
        if pathToImportHcode <> '' then
        begin
           list:= FindAllFiles(pathToImportHcode, '*.h', False);
@@ -838,7 +917,7 @@ begin
           end;
           list.Free;
        end;
-       //--------------------------
+
        if pathToImportCcode <> '' then
        begin
          list:= FindAllFiles(pathToImportCcode, '*.c', False);
@@ -2363,15 +2442,12 @@ begin
         end;
       end;
     end;
-
     ShowMessage('Sucess!! Imported form LAMW Stuff !!' +sLineBreak +
                 'Hints:'+ sLineBreak +
                 '.For each import,  "Run --> Build" and accept "Reload checked files from disk" !' + sLineBreak +
                 '.(Re)"Open" the project to update the form display content ...' + sLineBreak +
                 '      Or close the form unit tab and reopen it [Project Inspector...]'+ sLineBreak +
                 '      to see the content changes...');
-
-
   end
   else
   begin
@@ -2435,7 +2511,6 @@ begin
                end;
            end;
          end;
-
          ShowMessage('Sucess!! Imported form LAMW Stuff !!' +sLineBreak +
                     'Hints:'+ sLineBreak +
                     '.For each import,  "Run --> Build" and accept "Reload checked files from disk" !' + sLineBreak +
@@ -2674,9 +2749,12 @@ Var
   ideSubMnuAMW: TIDEMenuSection;
   ideSubMnuLog: TIDEMenuSection;
   ideSubMnuAppCompat: TIDEMenuSection;
+
   ideMnuLAMWBuild: TIDEMenuCommand;
+  ideMnuLAMWExplorer: TIDEMenuCommand;
 
   CmdMyTool: TIDECommand;
+  CmdMyExplorer: TIDECommand;
 
   Key: TIDEShortCut;
   Cat: TIDECommandCategory;
@@ -2694,6 +2772,7 @@ begin
   end;
   // Register main LAMW menu
   ideMnuAMW:= RegisterIDEMenuSection(mnuTools,'LAMW');
+
   // Register submenu
   ideSubMnuAMW:= RegisterIDESubMenu(ideMnuAMW, 'LAMW', '[LAMW] Android Module Wizard');
   if pathToLamwIcon <> '' then ideSubMnuAMW.Bitmap.LoadFromFile(pathToLamwIcon);
@@ -2764,11 +2843,18 @@ begin
    Key := IDEShortCut(VK_F1,[ssCtrl],VK_UNKNOWN,[]);
    Cat:=IDECommandList.FindCategoryByName(CommandCategoryToolMenuName);
    CmdMyTool := RegisterIDECommand(Cat,'BuildApkAndRun', '[LAMW] Build Android Apk and Run', Key, nil, @BuildApkAndRun);
-
-   //RegisterIDEMenuCommand(itmRunBuilding, 'BuildApkAndRun', '[LAMW] Build Android Apk and Run', nil, @BuildApkAndRun);
    ideMnuLAMWBuild:= RegisterIDEMenuCommand(itmRunBuilding, 'LAMW Build Apk And Run', '[LAMW] Build Android Apk and Run', nil, nil, CmdMyTool);
 
-  if pathToLamwIcon <> '' then ideMnuLAMWBuild.Bitmap.LoadFromFile(pathToLamwIcon);
+   RegisterIDEMenuCommand(itmRunBuilding, 'LamwToolKitRun', '[LAMW] Run Android Apk...', nil, @RunLamwToolKit);
+
+   if pathToLamwIcon <> '' then ideMnuLAMWBuild.Bitmap.LoadFromFile(pathToLamwIcon);
+
+  //LAMW Explore  by marcos-ebm
+   Key := IDEShortCut(VK_E,[ssAlt],VK_UNKNOWN,[]);
+   Cat:=IDECommandList.FindCategoryByName(CommandCategoryToolMenuName);
+   CmdMyExplorer := RegisterIDECommand(Cat,'LAMWExplorer', '', Key, nil, @RunLamwExplorer);
+   ideMnuLAMWExplorer:= RegisterIDEMenuCommand(itmFileDirectories, 'LAMW Explorer', '[LAMW] Explorer', nil, nil, CmdMyExplorer);
+   if pathToLamwIcon <> '' then ideMnuLAMWExplorer.Bitmap.LoadFromFile(pathToLamwIcon);
 
    ApkBuild.RegisterExtToolParser;
 end;

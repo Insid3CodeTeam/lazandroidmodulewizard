@@ -49,7 +49,7 @@ type
     FTheme: TAndroidTheme;
     FSplashExists: boolean;
 
-    function GetAndroidForm: TandroidForm; //jForm;   //jGdxForm
+    function GetAndroidForm: TandroidForm; //jForm;
 
     //Smart Designer helpers
     procedure InitSmartDesignerHelpers;
@@ -788,7 +788,8 @@ uses
   IDEExternToolIntf, laz2_XMLRead, FileUtil, LazFileUtils, FPimage, typinfo,
   uFormSizeSelect, LamwSettings, SmartDesigner, jImageListEditDlg, NinePatchPNG,
   customdialog, togglebutton, switchbutton,
-  Laz_And_GLESv1_Canvas, Laz_And_GLESv2_Canvas, gridview, Spinner, seekbar,
+  {$IFNDEF Darwin} Laz_And_GLESv1_Canvas, Laz_And_GLESv2_Canvas,{$ENDIF}
+  gridview, Spinner, seekbar,
   radiogroup, ratingbar, digitalclock, analogclock, surfaceview,
   autocompletetextview, drawingview, chronometer, viewflipper, videoview,
   comboedittext, toolbar, expandablelistview, framelayout, linearlayout, captionpanel,
@@ -2191,7 +2192,8 @@ begin
   begin
     if Acomponent is jControl then
     begin
-      if AComponent.Name.StartsWith(AComponent.ClassName) then
+      //if AComponent.Name.StartsWith(AComponent.ClassName) then
+      if string(AComponent.Name).StartsWith(AComponent.ClassName) then
       begin
           if (AComponent.Name[1] = 'j') or (AComponent.Name[1] = 'J') or (AComponent.Name[1] = 'K') then
           begin
@@ -5289,11 +5291,11 @@ initialization
   RegisterAndroidWidgetDraftClass(jAutoTextView, TDraftAutoTextView);
   RegisterAndroidWidgetDraftClass(jComboEditText, TDraftComboEditText);
   RegisterAndroidWidgetDraftClass(jDrawingView, TDraftDrawingView);
-
   // TODO::(default drawing and layout)
+  {$IFNDEF Darwin}
   RegisterAndroidWidgetDraftClass(jCanvasES2, TDraftWidget);
   RegisterAndroidWidgetDraftClass(jCanvasES1, TDraftWidget);
-
+  {$ENDIF}
   RegisterAndroidWidgetDraftClass(jChronometer, TDraftWidget);
   RegisterAndroidWidgetDraftClass(jViewFlipper, TDraftWidget);
   RegisterAndroidWidgetDraftClass(jVideoView, TDraftWidget);

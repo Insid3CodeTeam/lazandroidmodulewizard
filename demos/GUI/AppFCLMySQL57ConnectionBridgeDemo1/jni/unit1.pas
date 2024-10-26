@@ -13,13 +13,15 @@ type
   { TAndroidModule1 }
 
   TAndroidModule1 = class(jForm)
-    jButton1: jButton;
+    ButtonConnect: jButton;
+    jButtonQuery: jButton;
     jEditText1: jEditText;
     jListView1: jListView;
     jTextView1: jTextView;
     jTextView2: jTextView;
     MySQL57ConnectionBridge1: TMySQL57ConnectionBridge;
-    procedure jButton1Click(Sender: TObject);
+    procedure ButtonConnectClick(Sender: TObject);
+    procedure jButtonQueryClick(Sender: TObject);
   private
     {private declarations}
   public
@@ -36,51 +38,56 @@ implementation
 
 { TAndroidModule1 }
 
-procedure TAndroidModule1.jButton1Click(Sender: TObject);
-var
-  dataStr: string;
+procedure TAndroidModule1.jButtonQueryClick(Sender: TObject);
 begin
 
+  ShowMessage('Query a real dabase info and uncomment the code!');
+
+  (*
+  if MySQL57ConnectionBridge1.IsConnected then
+  begin
+    jListView1.Clear;
+    MySQLAndroidConnection1.SQLQuery.Close;
+    MySQLAndroidConnection1.SQLQuery.SQL.Text := 'SELECT * FROM T_CATEGORIES;';
+    MySQLAndroidConnection1.SQLQuery.Open;
+    MySQLAndroidConnection1.SQLQuery.Last;
+    jListView1.Add('Number of records: ' + IntToStr(MySQLAndroidConnection1.SQLQuery.RecordCount));
+    MySQLAndroidConnection1.SQLQuery.First;
+    while not MySQLAndroidConnection1.SQLQuery.EOF do
+      begin
+        jListView1.Add(MySQLAndroidConnection1.SQLQuery.FieldByName('F_CATEGORYNAME').AsString);
+        MySQLAndroidConnection1.SQLQuery.Next;
+      end;
+  end;
+  *)
+
+end;
+
+procedure TAndroidModule1.ButtonConnectClick(Sender: TObject);
+begin
   ShowMessage('Enter real dabase info and uncomment the code!');
 
-(*
-  MySQL57ConnectionBridge1.DatabaseName:='DATABASEFOO';
-  MySQL57ConnectionBridge1.HostName:='50.116.8.95';
-  MySQL57ConnectionBridge1.Port:=3306;
-  MySQL57ConnectionBridge1.UserName:='admin';
-  MySQL57ConnectionBridge1.Password:='123456';
+  (*
+  MySQL57ConnectionBridge1.HostName := '192.168.1.40';
+  MySQL57ConnectionBridge1.Port := 3306;
+  MySQL57ConnectionBridge1.DatabaseName := 'xxx';  //DATABASEFOO
+  MySQL57ConnectionBridge1.UserName := 'xxx';
+  MySQL57ConnectionBridge1.Password := 'xxx';
 
-  if MySQL57ConnectionBridge1.Connect() then
+  if MySQL57ConnectionBridge1.Connect then
   begin
-    try
-      MySQL57ConnectionBridge1.SQLQuery.close;
-      MySQL57ConnectionBridge1.SQLQuery.SQL.Text:='select * from TABFOO;';
-      MySQL57ConnectionBridge1.SQLQuery.Active:=true;
-      MySQL57ConnectionBridge1.SQLQuery.Open;
-
-      jListView1.Clear;
-
-      dataStr:= MySQL57ConnectionBridge1.SQLQuery.FieldByName('id').value;
-      jListView1.Add(dataStr);
-
-      dataStr:= MySQL57ConnectionBridge1.SQLQuery.FieldByName('name').value;
-      jListView1.Add(dataStr);
-
-      dataStr:= MySQL57ConnectionBridge1.SQLQuery.FieldByName('company').value;
-      jListView1.Add(dataStr);
-
-      dataStr:= MySQL57ConnectionBridge1.SQLQuery.FieldByName('address').value;
-      jListView1.Add(dataStr);
-
-      dataStr:= MySQL57ConnectionBridge1.SQLQuery.FieldByName('role').value;
-      jListView1.Add(dataStr);
-
-    finally
-      MySQL57ConnectionBridge1.SQLQuery.Close;
-    end;
-   end;
-
-*)
+      ShowMessage('Connected!');
+      if MySQL57ConnectionBridge1.SQLTransaction.Active then
+        ShowMessage('Transaction is active!!')
+      else
+        ShowMessage('Transaction is NOT active...');
+  end
+  else
+  begin
+       ShowMessage('Error... Connection fail...');
+       Exit;
+  end;
+  *)
 end;
 
 end.

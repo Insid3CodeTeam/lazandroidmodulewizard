@@ -18,14 +18,14 @@ type
     Name:string;
   end;
 
-  TSupportLibs = array[0..0] of TSupportLib;
+  TSupportLibs = array[0..1] of TSupportLib;
   TAppCompatLibs = array[0..2] of TAppCompatLib;
 
   { TLamwGlobalSettings }
 
   TLamwGlobalSettings = class
   public const
-    Version = '0.8.6.1';
+    Version = '0.8.6.4';
   private const
     IniFileName = 'LAMW.ini';
     IniFileSection = 'NewProject';
@@ -97,15 +97,23 @@ type
   end;
 
 const
+  //ref.   https://androidx.tech/artifacts/appcompat/appcompat/1.6.1
+  //androidx.appcompat:appcompat than 1.3.1 is available: 1.6.1
 
-  AppCompatLibs: TAppCompatLibs = (    //renamed by jmpessoa
-    (MinAPI:28;Name:'androidx.appcompat:appcompat:1.3.1'),
+  //ref https://github.com/material-components/material-components-android/releases
+  //com.google.android.material:material than 1.2.1 is available: 1.11.0
+
+  //ref https://android-developers.googleblog.com/2023/10/androidx-minsdkversion-19.html
+
+  AppCompatLibs: TAppCompatLibs = (
+    (MinAPI:28;Name:'androidx.appcompat:appcompat:1.7.0'),  //1.3.1
     (MinAPI:28;Name:'androidx.multidex:multidex:2.0.1'),
-    (MinAPI:28;Name:'com.google.android.material:material:1.2.1')
+    (MinAPI:28;Name:'com.google.android.material:material:1.12.0')  //1.2.1
   );
 
-  SupportLibs: TSupportLibs = (  //refactored by jmpessoa
-    (MinAPI:28;Name:'androidx.core:core:1.2.0')
+  SupportLibs: TSupportLibs = (
+    (MinAPI:28;Name:'androidx.core:core:1.9.0'),   //1.2.0
+    (MinAPI:28;Name:'androidx.multidex:multidex:2.0.1')
   );
 
 var
@@ -271,7 +279,7 @@ end;
 function TLamwGlobalSettings.GetPathToGradle: string;
 begin
   Result := GetPath(FPathToGradle, 'PathToGradle',
-    'Path to Gradle: [ex. C:\lamw\gradle-6.6.1]');
+    'Path to Gradle: [ex. C:\lamw\gradle-7.6.3]');
 end;
 
 function TLamwGlobalSettings.ReadIniString(const Key: string;
@@ -305,7 +313,7 @@ end;
 function TLamwGlobalSettings.GetPathToAndroidNDK: string;
 begin
   Result := GetPath(FPathToAndroidNDK, 'PathToAndroidNDK',
-    'Path to Android NDK:  [ex. C:\lamw\ndk10]');
+    'Path to Android NDK:  [ex. C:\lamw\ndk]');
 end;
 
 function TLamwGlobalSettings.GetPathToAndroidSDK: string;

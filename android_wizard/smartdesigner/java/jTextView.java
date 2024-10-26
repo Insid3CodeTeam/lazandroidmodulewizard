@@ -1,7 +1,6 @@
-package org.lamw.applistviewdemo8;
+package org.lamw.appcompatkref;
 
 import java.lang.reflect.Field;
-
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -35,7 +34,7 @@ import android.view.ViewGroup;
 import android.view.Gravity;
 import android.widget.TextView;
 
-public class jTextView extends  TextView { //androidx.appcompat.widget.AppCompatTextView
+public class jTextView extends TextView { //androidx.appcompat.widget.AppCompatTextView
     //Java-Pascal Interface
     private Controls        controls = null;   // Control Class for Event
     private jCommons LAMWCommon;
@@ -447,8 +446,7 @@ public class jTextView extends  TextView { //androidx.appcompat.widget.AppCompat
 				case 1: this.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG); break; 	 
 				case 2: this.setTextDirection(View.TEXT_DIRECTION_ANY_RTL);	  break; 
 				case 3: this.setTextDirection(View.TEXT_DIRECTION_LTR); break;  
-				case 4: this.setTextDirection(View.TEXT_DIRECTION_RTL); 
-					 		  		  		   
+				case 4: this.setTextDirection(View.TEXT_DIRECTION_RTL);
 				}			
 		 }	
        //[endif_api17up]
@@ -484,14 +482,14 @@ public class jTextView extends  TextView { //androidx.appcompat.widget.AppCompat
 
 	//http://rajeshandroiddeveloper.blogspot.com.br/2013/07/how-to-implement-custom-font-to-text.html
 	public void SetTextAsLink(String _linkText) {
-
                //[ifdef_api24up]
-	       if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N)
-	        this.setText(Html.fromHtml(_linkText, Html.FROM_HTML_MODE_LEGACY));
-           else //[endif_api24up]
-		    this.setText(Html.fromHtml(_linkText));
-
-               this.setMovementMethod(LinkMovementMethod.getInstance());
+	       if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+			   this.setText(Html.fromHtml(_linkText, Html.FROM_HTML_MODE_LEGACY));
+		   }
+           else { //[endif_api24up]
+			   this.setText(Html.fromHtml(_linkText));
+		   }
+		   this.setMovementMethod(LinkMovementMethod.getInstance());
 	}
 
 	public void SetTextAsLink(String _linkText, int _color) {  //by ADiV
@@ -561,6 +559,24 @@ public class jTextView extends  TextView { //androidx.appcompat.widget.AppCompat
 		}
 		this.setHorizontallyScrolling(false);
 		this.setSingleLine();
+	}
+
+	public void SetTextAllCaps(String _text) {
+		this.setAllCaps(true);
+		this.setText(_text);
+	}
+
+	public void SetScrollingMovementMethod() {
+		this.setMovementMethod(new ScrollingMovementMethod());
+	}
+	public void SetVerticalScrollBarEnabled(boolean _value) {
+		this.setVerticalScrollBarEnabled(_value);
+	}
+	public void SetHorizontalScrollBarEnabled(boolean _value) {
+		this.setHorizontalScrollBarEnabled(_value);
+	}
+	public void SetVerticalScrollbarPosition(int _value) {
+		this.setVerticalScrollbarPosition(_value);
 	}
 
 }

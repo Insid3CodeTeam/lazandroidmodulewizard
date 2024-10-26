@@ -5,9 +5,10 @@ unit uformworkspace;
 interface
 
 uses
-  inifiles, Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs,
+  inifiles, Classes, SysUtils, FileUtil, StrUtils, Forms, Controls, Graphics, Dialogs,
   LazIDEIntf, StdCtrls, Buttons, ExtCtrls, ComCtrls, ComboEx,
-  FormPathMissing, PackageIntf;
+  FormPathMissing, PackageIntf, Process, uformandroidmanifest,
+  createdirectories{, uformjnirawlibsignature};
 
 type
 
@@ -16,6 +17,7 @@ type
   TFormWorkspace  = class(TForm)
     BitBtnCancel: TBitBtn;
     BitBtnOK: TBitBtn;
+    CheckBoxAutoConfigGradle: TCheckBox;
     CheckBoxGeneric: TCheckBox;
     CheckBoxPIE: TCheckBox;
     cbBuildSystem: TComboBox;
@@ -30,15 +32,16 @@ type
     EditPackagePrefaceName: TEdit;
     EditPathToWorkspace: TEdit;
     edProjectName: TEdit;
-    GroupBox1: TGroupBox;
-    GroupBox2: TGroupBox;
-    GroupBox3: TGroupBox;
-    GroupBox4: TGroupBox;
-    GroupBox5: TGroupBox;
+    GroupBoxPrefaceName: TGroupBox;
+    GroupBoxNdkApi: TGroupBox;
+    GroupBoxMinApi: TGroupBox;
+    GroupBoxTargetApi: TGroupBox;
+    GroupBoxApkBuilder: TGroupBox;
     Image1: TImage;
     LabelTheme: TLabel;
     LabelPathToWorkspace: TLabel;
     LabelSelectProjectName: TLabel;
+    OpenDialog1: TOpenDialog;
     Panel1: TPanel;
     Panel2: TPanel;
     PanelPlatform: TPanel;
@@ -49,10 +52,13 @@ type
     SpdBtnPathToWorkspace: TSpeedButton;
     SpdBtnRefreshProjectName: TSpeedButton;
     SpeedButton1: TSpeedButton;
+    SpeedButtonHelper: TSpeedButton;
+    SpeedButtonSettings: TSpeedButton;
     SpeedButtonHintTheme: TSpeedButton;
     StatusBarInfo: TStatusBar;
 
     procedure cbBuildSystemCloseUp(Sender: TObject);
+    procedure CheckBoxAutoConfigGradleChange(Sender: TObject);
     procedure CheckBoxGenericClick(Sender: TObject);  // raw library
     procedure CheckBoxPIEClick(Sender: TObject);
     procedure CheckBoxSupportChange(Sender: TObject);
@@ -62,9 +68,12 @@ type
     procedure EditPathToWorkspaceExit(Sender: TObject);
     procedure FormActivate(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: boolean);
     procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
 
     procedure ListBoxMinSDKChange(Sender: TObject);
+    procedure ListBoxMinSDKCloseUp(Sender: TObject);
     procedure ListBoxNdkPlatformChange(Sender: TObject);
     procedure ListBoxTargetAPIChange(Sender: TObject);
     procedure ListBoxTargetAPICloseUp(Sender: TObject);
@@ -73,14 +82,10 @@ type
     procedure SpdBtnPathToWorkspaceClick(Sender: TObject);
     procedure SpdBtnRefreshProjectNameClick(Sender: TObject);
     procedure SpeedButton1Click(Sender: TObject);
+    procedure SpeedButtonHelperClick(Sender: TObject);
+    procedure SpeedButtonSettingsClick(Sender: TObject);
     procedure SpeedButtonSDKPlusClick(Sender: TObject);
     procedure SpeedButtonHintThemeClick(Sender: TObject);
-    function IsLaz4Android(): boolean;
-    function IsLaz4Android2012(): boolean;
-
-    function IsLamwManagerForWindows(): boolean; //lamw-ide.bat
-
-    function IsLamwManagerForLinux(): boolean; //startlamw4linux
 
   private
     { private declarations }
@@ -99,7 +104,7 @@ type
     FPathToGradle: string;
 
     FProjectModel: string;   //NEW or SAVED
-    FModuleType: integer;  //-1:gdx 0: GUI project   1: NoGui project   2: NoGUI Exe
+    FModuleType: integer;  //0: GUI project   1: NoGui project   2: NoGUI Exe console 3: raw lib
     FSmallProjName: string;
     FPackagePrefaceName: string;
 
@@ -122,7 +127,7 @@ type
     FAndroidTheme: string;
     FAndroidThemeColor: string;
     FPieChecked: boolean;
-    FRawLibraryChecked: boolean;  //raw .so
+    //FRawJNILibraryChecked: boolean;  //raw .so
     FGradleVersion: string;
 
     FMaxSdkPlatform: integer;
@@ -136,15 +141,28 @@ type
     FNDKVersion: integer;
 
     FIsKotlinSupported: boolean;
+    FKeepMyBuildGradleWhenReopen: boolean;
+    FJavaMainVersion: string;
+    FJavaBigVersion: string;
+    FManifestData: TStrings;
+    FRawJniJClassWrapperPath: string;
+    FAndroidStudioJniLibsFolderPath: string;
 
     function GetBuildSystem: string;
     function HasBuildTools(platform: integer; out outBuildTool: string): boolean;
-    function GetGradleVersion(out tagVersion: integer): string;
+    function GetGradleVersion(pathGradle:string): string;
+    function TryProduceGradleVersion(pathToGradle: string): string;
     function IsSdkToolsAntEnable: boolean;
     procedure WriteIniString(Key, Value: string);
     function DoPathToSmartDesigner(): string;
     function DoNewPathToJavaTemplate(): string;
     function GetPathToSmartDesigner(): string;
+    function IsLaz4Android(): boolean;
+    function IsLaz4Android2012(): boolean;
+
+    function IsLamwManagerForWindows(): boolean; //lamw-ide.bat
+    function IsLamwManagerForLinux(): boolean; //startlamw4linux
+
   public
     { public declarations }
     procedure LoadSettings(const pFilename: string);
@@ -159,11 +177,18 @@ type
     function GetEventSignature(nativeMethod: string): string;
 
     function GetMaxSdkPlatform(): integer;
-    function GetBuildTool(sdkApi: integer): string;
 
-    function GetMaxNdkPlatform(ndkVer: integer): integer; //new
+    function GetMaxNdkPlatform(ndkVer: integer): integer;
+
     function TryGetNDKRelease(pathNDK: string): string;
     function GetNDKVersion(ndkRelease: string): integer;
+    procedure TryProduceJavaVersion(pathToJDK: string);
+    function GetGradleVersionAsBigNumber(gradleVersionAsString: string): integer;
+    procedure CheckingSettingsCompatibility;
+    procedure WarningCheckingJDK_21(javaVersionBigNumber: string; grVersion:string);
+    procedure WarningCheckingJDK_17(javaVersionBigNumber: string; grVersion:string);
+    procedure WarningCheckingJDK_11(javaVersionBigNumber: string; grVersion:string);
+    procedure WarningCheckingJDK_8(javaVersionBigNumber: string; grVersion:string);
 
     property PathToWorkspace: string read FPathToWorkspace write FPathToWorkspace;
     property InstructionSet: string read FInstructionSet write FInstructionSet;
@@ -194,18 +219,23 @@ type
     property PrebuildOSYS: string read FPrebuildOSYS write FPrebuildOSYS;
     property FullJavaSrcPath: string read FFullJavaSrcPath write FFullJavaSrcPath;
     property JavaClassName: string read   FJavaClassName write FJavaClassName;
-    property ModuleType: integer read FModuleType write FModuleType;  //-1: gdx 0: GUI project   1: NoGui project
+    property ModuleType: integer read FModuleType write FModuleType;  //0: GUI project   1: NoGui project  2: console app 3: raw lib
     property SmallProjName: string read FSmallProjName write FSmallProjName;
     property AndroidTheme: string read FAndroidTheme write FAndroidTheme;
     property AndroidThemeColor: string read FAndroidThemeColor write FAndroidThemeColor;
     property PieChecked: boolean read FPieChecked write FPieChecked;
-    property RawLibraryChecked: boolean read FRawLibraryChecked write FRawLibraryChecked; //raw .so
+    //property RawJNILibraryChecked: boolean read FRawJNILibraryChecked write FRawJNILibraryChecked; //raw .so
     property BuildSystem: string read GetBuildSystem;
     property MaxSdkPlatform: integer read FMaxSdkPlatform write FMaxSdkPlatform;
     property GradleVersion: string read FGradleVersion write FGradleVersion;
   //  property LAMWHintChecked: boolean read FLAMWHintChecked write FLAMWHintChecked;
     property IsKotlinSupported: boolean read FIsKotlinSupported write FIsKotlinSupported;
-
+    property KeepMyBuildGradleWhenReopen: boolean read FKeepMyBuildGradleWhenReopen write FKeepMyBuildGradleWhenReopen;
+    property JavaMainVersion: string read FJavaMainVersion write FJavaMainVersion;
+    property JavaBigVersion: string read FJavaBigVersion write FJavaBigVersion;
+    property ManifestData: TStrings read FManifestData write FManifestData;
+    property RawJniJClassWrapperPath: string read FRawJniJClassWrapperPath write FRawJniJClassWrapperPath;
+    property AndroidStudioJniLibsFolderPath: string read FAndroidStudioJniLibsFolderPath write FAndroidStudioJniLibsFolderPath;
   end;
 
   function TrimChar(query: string; delimiter: char): string;
@@ -214,12 +244,15 @@ type
   function ReplaceChar(const query: string; oldchar, newchar: char): string;
   function IsAllCharNumber(pcString: PChar): Boolean;
 
+
 var
    FormWorkspace: TFormWorkspace;
 
 implementation
 
-uses LamwSettings;
+uses
+  {$ifdef unix}BaseUnix,{$endif}
+  LamwSettings;
 
 {$R *.lfm}
 
@@ -283,14 +316,6 @@ begin
     end;
   end;
 
-  if Result < 30 then
-       ShowMessage('Warning. Minimum Target API required by "Google Play Store" = 30'+ sLineBreak +
-                   'Please, update your android sdk/platforms folder!' + sLineBreak +
-                   'How to:'+ sLineBreak +
-                   '.open a command line terminal and go to folder "sdk/tools/bin"'+ sLineBreak +
-                   '.run the command  >>sdkmanager --update'+ sLineBreak +
-                   '.run the command  >>sdkmanager "build-tools;30.0.2" "platforms;android-30"');
-
   lisDir.free;
 end;
 
@@ -317,8 +342,9 @@ begin
   else if api='29' then Result:= 'Android 10'
   else if api='30' then Result:= 'Android 11'
   else if api='31' then Result:= 'Android 12'
-  else if api='32' then Result:= 'Android 13'
-  else if api='33' then Result:= 'Android 14';
+  else if api='32' then Result:= 'Android 12'
+  else if api='33' then Result:= 'Android 13'
+  else if api='34' then Result:= 'Android 14';
 end;
 
 //http://developer.android.com/about/dashboards/index.html
@@ -349,8 +375,9 @@ begin
      16: Result:= 'Android 10'; // Api(29)
      17: Result:= 'Android 11'; // Api(30)
      18: Result:= 'Android 12'; // Api(31)
-     19: Result:= 'Android 13'; // Api(32) or 33
-     20: Result:= 'Android 14'; // Api(33)
+     19: Result:= 'Android 12'; // Api(32) or 33
+     20: Result:= 'Android 13'; // Api(33)
+     21: Result:= 'Android 14'; // Api(34)
    end;
 end;
 
@@ -398,11 +425,11 @@ begin
        FTargetApi:= ListBoxTargetAPI.Items[ListBoxTargetAPI.ItemIndex];
 
     if not IsAllCharNumber(PChar(FTargetApi))  then
-      FTargetApi:= '30';
+      FTargetApi:= '33';
 
     intTarqetApi:= StrToInt(FTargetApi);
-    if intTarqetApi  < 30 then
-       ShowMessage('Warning: remember that "google play" store NOW requires Target Api >= 30 !');
+    if intTarqetApi  < 33 then
+       ShowMessage('Warning: remember that "Google Play Store" requires Target Api >= 33 !');
 
   end;
 end;
@@ -411,24 +438,18 @@ procedure TFormWorkspace.ListBoxTargetAPICloseUp(Sender: TObject);
 var
   intApi: integer;
 begin
-  if (Pos('AppCompat', ComboBoxTheme.Text) > 0) then
-  begin
    intApi:= StrToInt(ListBoxTargetAPI.Text);
 
-   if intApi  < 24 then
-     ShowMessage('Warning. Starting with "Android 14", apps with a targetSdkVersion lower than 23 can''t be installed...');
-
-   if intApi < 30  then
+   if intApi < 33  then
    begin
-     ShowMessage('Warning. AppCompat theme and Minimum Target API required by "Google Play Store" = 30'+ sLineBreak +
+     ShowMessage('Warning. Target API required by "Google Play Store" = 33'+ sLineBreak +
                   'Please, update your android sdk/platforms folder!' + sLineBreak +
                   'How to:'+ sLineBreak +
                   '.open a command line terminal and go to folder "sdk/tools/bin"'+ sLineBreak +
                   '.run the command  >>sdkmanager --update'+ sLineBreak +
-                  '.run the command  >>sdkmanager "build-tools;30.0.2" "platforms;android-30"');
+                  '.run the command  >>sdkmanager "build-tools;33.0.2" "platforms;android-33"');
    end;
 
-  end;
 end;
 
 procedure TFormWorkspace.RGInstructionClick(Sender: TObject);
@@ -549,13 +570,13 @@ end;
 
 function TFormWorkspace.IsLamwManagerForWindows(): boolean;
 begin
- result := false;
+ result := False;
  //TODO
 end;
 
 function TFormWorkspace.IsLamwManagerForLinux(): boolean;
 begin
- result := false;
+ result := False;
  //TODO
 end;
 
@@ -618,16 +639,27 @@ begin
 
 end;
 
-
 procedure TFormWorkspace.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 var
   strList: TStringList;
   count, i, j, apiTarg: integer;
   path, tempStr: string;
-  aList: TStringList;
+  aList, auxList: TStringList;
+  auxChip: string;
 begin
+   //0: GUI project   1: NoGui project   2: NoGUI Exe/console or .so
+  if FGradleVersion <> '' then
+  begin
+    aList:= TStringList.Create;
+    aList.Text:= FGradleVersion;
+    if not FileExists(FPathToGradle+PathDelim+'version.txt') then
+        aList.SaveToFile(FPathToGradle + PathDelim + 'version.txt'); //so you don't miss the opportunity
+    aList.Free;
+  end;
 
   if ModalResult = mrCancel  then Exit;
+
+  strList:= TStringList.Create;
 
   FMainActivity:= 'App'; //TODO: need flexibility here...
 
@@ -636,14 +668,14 @@ begin
   apiTarg:= StrToInt(FTargetApi);
 
 
-  if apiTarg < 30 then
+  if apiTarg < 33 then
   begin
-    ShowMessage('Warning. Minimum Target API required by "Google Play Store" = 30'+ sLineBreak +
-                 'Please, update your android sdk/platforms folder!' + sLineBreak +
+    ShowMessage('Warning. Minimum Target API required by "Google Play Store" = 33'+ sLineBreak +
+                 'Please, update your android "sdk/platforms" folder!' + sLineBreak +
                  'How to:'+ sLineBreak +
                  '.open a command line terminal and go to folder "sdk/tools/bin"'+ sLineBreak +
                  '.run the command  >>sdkmanager --update'+ sLineBreak +
-                 '.run the command  >>sdkmanager "build-tools;30.0.2" "platforms;android-30"');
+                 '.run the command  >>sdkmanager "build-tools;33.0.2" "platforms;android-33"');
   end;
 
   FMinApi:= ListBoxMinSDK.Items[ListBoxMinSDK.ItemIndex];
@@ -655,7 +687,7 @@ begin
 
   if Pos('AppCompat', ComboBoxTheme.Text) > 0 then
   begin
-     if StrToInt(FMinApi) < 18 then FMinApi:= '18' //14
+     if StrToInt(FMinApi) < 21 then FMinApi:= '21' //14
   end;
 
   //SaveWorkSpaceSettings(FFileName);
@@ -701,7 +733,7 @@ begin
      if EditPackagePrefaceName.Text = '' then EditPackagePrefaceName.Text:= 'org.lamw';
      FPackagePrefaceName:= LowerCase(Trim(EditPackagePrefaceName.Text));
 
-     if FModuleType > 0 then //NoGUI
+     if FModuleType > 0 then // NoGUI     //0: GUI project   1: NoGui project   2: console app 4: raw .so lib
           FJavaClassName:=  FSmallProjName;
   end
   else
@@ -713,8 +745,9 @@ begin
      aList.Delimiter:= DirectorySeparator;
      aList.DelimitedText:= TrimChar(FAndroidProjectName, DirectorySeparator);
      FSmallProjName:=  aList.Strings[aList.Count-1];; //ex. "AppTest1"
-     FPackagePrefaceName:= '';
      aList.Free;
+
+     FPackagePrefaceName:= '';
      if FModuleType > 0 then  //NoGUI
        FJavaClassName:=  FSmallProjName //ex. "AppTest1"
   end;
@@ -724,10 +757,9 @@ begin
   if FProjectModel = 'SAVED' then ////please, read as "project exists!"
   begin
 
-     strList:= TStringList.Create;
+     CreateDirectoriesDotSettings(FAndroidProjectName);
      if not DirectoryExists(FAndroidProjectName+DirectorySeparator+'.settings') then
      begin
-       CreateDir(FAndroidProjectName+DirectorySeparator+'.settings');
        strList.Add('eclipse.preferences.version=1');
        strList.Add('org.eclipse.jdt.core.compiler.codegen.targetPlatform=1.7');
        strList.Add('org.eclipse.jdt.core.compiler.compliance=1.7');
@@ -767,7 +799,6 @@ begin
      end;
 
      FPackagePrefaceName:= TrimChar(path, '.');
-     strList.Free;
 
      FFullJavaSrcPath:=GetFullJavaSrcPath(FAndroidProjectName); //if [old] project exists
 
@@ -775,15 +806,6 @@ begin
                  FAndroidProjectName+DirectorySeparator+ 'res'+DirectorySeparator+'values'+DirectorySeparator+'colors.xml');
 
      if Pos('AppCompat', ComboBoxTheme.Text) > 0 then
-     begin
-      { CopyFile(FPathToJavaTemplates+DirectorySeparator+'values'+DirectorySeparator+'colors.xml',
-                   FAndroidProjectName+DirectorySeparator+ 'res'+DirectorySeparator+'values'+DirectorySeparator+'colors.xml');}
-       tempStr:= ComboBoxTheme.Text;      // AppCompat.Light.DarkActionBar  or AppCompat.Light.DarkActionBar
-       CopyFile(FPathToJavaTemplates+DirectorySeparator+'values'+DirectorySeparator+tempStr+'.xml',
-                  FAndroidProjectName+DirectorySeparator+ 'res'+DirectorySeparator+'values'+DirectorySeparator+'styles.xml');
-     end;
-
-     if Pos('GDXGame', ComboBoxTheme.Text) > 0 then
      begin
       { CopyFile(FPathToJavaTemplates+DirectorySeparator+'values'+DirectorySeparator+'colors.xml',
                    FAndroidProjectName+DirectorySeparator+ 'res'+DirectorySeparator+'values'+DirectorySeparator+'colors.xml');}
@@ -806,38 +828,150 @@ begin
     end
     else
     begin
-      CreateDir(FAndroidProjectName);
-      if FModuleType <> 2 then  //0: GUI project   1: NoGui project   2: NoGUI Exe
+      CreateDir(FAndroidProjectName);  //project folder....
+      CreateDir(FAndroidProjectName+DirectorySeparator+'jni');
+
+      tempStr:= FAndroidProjectName+DirectorySeparator+'jni'+DirectorySeparator;
+      strList.Clear;
+      strList.Add('@echo off');
+      strList.Add('echo before build...');
+      strList.SaveToFile(tempStr+'before_build.bat');
+
+      strList.Clear;
+      strList.Add('@echo off');
+      strList.Add('echo after build...');
+      strList.SaveToFile(tempStr+'after_build.bat');
+
+      strList.Clear;
+      strList.Add('#!/bin/bash');
+      strList.Add('echo "before build..."');
+      strList.SaveToFile(tempStr+'before_build.sh');
+      {$ifdef unix}
+        FpChmod(tempStr+'before_build.sh', &751);
+      {$endif}
+
+      strList.Clear;
+      strList.Add('#!/bin/bash');
+      strList.Add('echo "after build..."');
+      strList.SaveToFile(tempStr+'after_build.sh');
+      {$ifdef unix}
+        FpChmod(tempStr+'after_build.sh', &751);
+      {$endif}
+
+      if FModuleType = 0 then // [ < 2 ]: GUI project   1: NoGui project   2: console app 3: raw .so lib
       begin
-        CreateDir(FAndroidProjectName+ DirectorySeparator + 'jni');
-        CreateDir(FAndroidProjectName+DirectorySeparator+ 'jni'+DirectorySeparator+'build-modes');
+        CreateDirectoriesFull(FAndroidProjectName, FJavaClassName); //all dirs.....
       end
-      else  //console executable app
+      else  //console executable app ->  2, 3 -> app  or raw ".so"
       begin
-        CreateDir(FAndroidProjectName+DirectorySeparator+'build-modes');
+         CreateDir(FAndroidProjectName+DirectorySeparator+'jni');
+         CreateDir(FAndroidProjectName+DirectorySeparator+'jni'+DirectorySeparator+'libs');
+         CreateDir(FAndroidProjectName+DirectorySeparator+'jni'+DirectorySeparator+'build-modes');
+
+         if FRawJniJClassWrapperPath <> '' then
+         begin
+             strList.Clear;
+             strList.Add(FRawJniJClassWrapperPath);
+             strList.SaveToFile(FAndroidProjectName+DirectorySeparator+'jni'+DirectorySeparator+'libs'+DirectorySeparator+'javaclass.path');
+
+             if not DirectoryExists(FAndroidStudioJniLibsFolderPath+PathDelim+'jniLibs') then
+             begin
+               try    //jniLibs\armeabi-v7a
+                 CreateDir(FAndroidStudioJniLibsFolderPath+DirectorySeparator+'jniLibs');
+                 strList.Clear;
+                 strList.Add(FAndroidStudioJniLibsFolderPath+DirectorySeparator+'jniLibs');
+                 strList.SaveToFile(FAndroidProjectName+DirectorySeparator+'jni'+DirectorySeparator+'libs'+DirectorySeparator+'jnilibs.path');
+               except
+                 ShowMessage('warning: fail to create "Android Studio"'+sLineBreak+'"...main/jniLibs" folder!');
+               end;
+
+               auxChip:= 'armeabi-v7a';
+               case Self.RGInstruction.ItemIndex of
+                  0: auxChip:= 'armeabi';
+                  1: auxChip:= 'armeabi-v7a';
+                  2: auxChip:= 'armeabi-v7a';
+                  3: auxChip:= 'x86';
+                  //4: aux:= 'mips'
+                  5: auxChip:= 'arm64-v8a';
+                  6: auxChip:= 'x86_64';
+               end;
+               try
+                 CreateDir(FAndroidStudioJniLibsFolderPath+DirectorySeparator+'jniLibs'+ DirectorySeparator + auxChip);
+               except
+                 ShowMessage('warning: fail to create "Android Studio"'+sLineBreak+'folder "...main/jniLibs/'+auxChip+'" folder!');
+               end;
+             end;
+             strList.Clear;
+             strList.Add('unit java_call_bridge_'+FSmallProjName+';');
+             strList.Add(' ');
+             strList.Add('{$mode delphi} ');
+             strList.Add(' ');
+             strList.Add('interface');
+             strList.Add(' ');
+             strList.Add('uses');
+             strList.Add('  jni, jnihelper;');
+             strList.Add(' ');
+             strList.Add('implementation');
+             strList.Add(' ');
+             strList.Add('uses');
+             strList.Add('  Unit1;');
+             strList.Add('  ');
+             strList.Add('   ');
+             strList.Add('end.');
+             strList.SaveToFile(FAndroidProjectName + DirectorySeparator+'jni'+DirectorySeparator+ 'java_call_bridge_' + FSmallProjName + '.pas');
+
+             CopyFile(FPathToJavaTemplates+DirectorySeparator+'rawjnihelper'+DirectorySeparator+'jnihelper.pas',
+                      FAndroidProjectName + DirectorySeparator+'jni'+DirectorySeparator+'jnihelper.pas');
+         end
+         else
+         begin
+            auxList:= TStringList.Create;
+            auxList.Add('package '+FPackagePrefaceName+';  //warning: check/fix package name!');
+            auxList.Add(' ');
+            auxList.Add('import android.util.Log;');
+            auxList.Add(' ');
+            auxList.Add('public class '+FSmallProjName+' { //fw');
+            auxList.Add(' ');
+            auxList.Add('    static {');
+            auxList.Add('        try {');
+            auxList.Add('            System.loadLibrary("'+LowerCase(FSmallProjName)+'");}');
+            auxList.Add('        catch (UnsatisfiedLinkError e) {');
+            auxList.Add('            Log.e("Error loading JNI lib <'+LowerCase(FSmallProjName)+'>", "exception", e);');
+            auxList.Add('        }');
+            auxList.Add('    }');
+            auxList.Add('    public native int sum(int x, int y);');
+            auxList.Add('    public native String allCaps(msg: String);');
+            auxList.Add('}');
+            auxList.SaveToFile(FAndroidProjectName+DirectorySeparator+'jni'+DirectorySeparator+'libs'+DirectorySeparator+ FSmallProjName+'.java');
+
+            strList.Clear;
+            //dummy path
+            FRawJniJClassWrapperPath:=FAndroidProjectName+DirectorySeparator+'jni'+DirectorySeparator+'libs'+DirectorySeparator+ FSmallProjName+'.java';
+            strList.Add(FRawJniJClassWrapperPath);
+            strList.SaveToFile(FAndroidProjectName+DirectorySeparator+'jni'+DirectorySeparator+'libs'+DirectorySeparator+'javaclass.path');
+            auxList.Free;
+         end;
       end;
-
-      CreateDir(FAndroidProjectName+ DirectorySeparator + 'libs');
-      CreateDir(FAndroidProjectName+ DirectorySeparator + 'obj');
-
-      if FModuleType <> 2 then
-      begin
-        CreateDir(FAndroidProjectName+ DirectorySeparator + 'obj'+DirectorySeparator+LowerCase(FJavaClassName));
-      end;
-
-      CreateDir(FAndroidProjectName+ DirectorySeparator + 'libs'+DirectorySeparator+'x86');
-      CreateDir(FAndroidProjectName+ DirectorySeparator + 'libs'+DirectorySeparator+'armeabi');
-      CreateDir(FAndroidProjectName+ DirectorySeparator + 'libs'+DirectorySeparator+'armeabi-v7a');
-
-      CreateDir(FAndroidProjectName+ DirectorySeparator + 'libs'+DirectorySeparator+'arm64-v8a');
-      CreateDir(FAndroidProjectName+ DirectorySeparator + 'libs'+DirectorySeparator+'x86_64');
-
     end;
-
   end;
+  strList.Free;
 
   //CloseAction := caFree;
+end;
 
+procedure TFormWorkspace.FormCloseQuery(Sender: TObject; var CanClose: boolean);
+begin
+   if Self.ModalResult = mrOk then
+   begin
+     if cbBuildSystem.Items.Count > 0 then
+     begin
+       if cbBuildSystem.Text = '' then
+       begin
+          ShowMessage('Please,  select the build system [Ant or Gradle?]');
+          CanClose:= False;
+       end;
+     end;
+   end;
 end;
 
 function TFormWorkspace.DoPathToSmartDesigner(): string;
@@ -880,6 +1014,7 @@ end;
 
 procedure TFormWorkspace.FormCreate(Sender: TObject);
 begin
+  FKeepMyBuildGradleWhenReopen:= True;
   if not FileExists(IncludeTrailingPathDelimiter(LazarusIDE.GetPrimaryConfigPath) + 'LAMW.ini') then
   begin
     if FileExists(IncludeTrailingPathDelimiter(LazarusIDE.GetPrimaryConfigPath) + 'JNIAndroidProject.ini') then
@@ -892,6 +1027,12 @@ begin
        Self.DoNewPathToJavaTemplate();
     end;
   end;
+  FManifestData:= TStringList.Create;
+end;
+
+procedure TFormWorkspace.FormDestroy(Sender: TObject);
+begin
+  if FManifestData <> nil then FManifestData.Free;
 end;
 
 procedure TFormWorkspace.ListBoxMinSDKChange(Sender: TObject);
@@ -915,6 +1056,17 @@ begin
   FMinApi:= ListBoxMinSDK.Items[ListBoxMinSDK.ItemIndex];
 
   StatusBarInfo.Panels.Items[1].Text:= '[MinSdk] '+GetTextByListIndex(ListBoxMinSDK.ItemIndex);
+end;
+
+procedure TFormWorkspace.ListBoxMinSDKCloseUp(Sender: TObject);
+var
+  intApi: integer;
+begin
+   intApi:= StrToInt(ListBoxMinSDK.Text);
+   if intApi < 23  then
+   begin
+     ShowMessage('Warning. Min. Device Api required by "Google Play Store" = 23');
+   end;
 end;
 
 function TFormWorkspace.GetEventSignature(nativeMethod: string): string;
@@ -966,13 +1118,11 @@ begin
     end;
   end;
   Result:= method+'=Java_Event_'+method+signature+');';
+
   if Pos('pAppOnCreate=', Result) > 0 then
   begin
     if FModuleType = 0 then  //GUI
       Result:= Result +  'AndroidModule1.init;';
-
-    if FModuleType = -1 then //Gdx
-      Result:= Result +  'GdxModule1.init;';
   end;
 
   listParam.Free;
@@ -1029,8 +1179,8 @@ end;
 procedure TFormWorkspace.LoadPathsSettings(const fileName: string);
 var
   frm: TFormPathMissing;
-  nativeMethodList, tempList, gdxList: TStringList;
-  i, k: integer;
+  nativeMethodList, tempList: TStringList;
+  i: integer;
   strIndexNdk: string;
 begin
   if FileExists(fileName) then
@@ -1041,7 +1191,7 @@ begin
       if  FPathToJavaJDK = '' then
       begin
           frm:= TFormPathMissing.Create(nil);
-          frm.LabelPathTo.Caption:= 'WARNING! Path to Java JDK: [ex. C:\Program Files (x86)\Java\jdk1.7.0_21]';
+          frm.LabelPathTo.Caption:= 'WARNING! Path to Java JDK: [ex. C:\Program Files (x86)\Java\jdk1.8.0_151]';
           if frm.ShowModal = mrOK then
           begin
              FPathToJavaJDK:= frm.PathMissing;
@@ -1156,22 +1306,6 @@ begin
           tempList.Add(GetEventSignature(nativeMethodList.Strings[i]));
         end;
 
-        //if Pos('GDXGame', Self.ComboBoxTheme.Text) > 0 then
-        if FModuleType = -1 then //GDXGame;
-        begin
-          gdxList:= TStringList.Create;
-          if FileExists(FPathToJavaTemplates + DirectorySeparator + 'gdx'+DirectorySeparator+'jGdxForm.native') then
-          begin
-            gdxList.LoadFromFile(FPathToJavaTemplates + DirectorySeparator + 'gdx'+DirectorySeparator+'jGdxForm.native');
-            for k:= 0 to gdxList.Count-1 do
-            begin
-              tempList.Add(GetEventSignature(gdxList.Strings[k]));
-              nativeMethodList.Add(gdxList.Strings[k]);
-            end;
-          end;
-          gdxList.Free;
-        end;
-
         tempList.SaveToFile(FPathToJavaTemplates+DirectorySeparator+'Controls.events');  //old "ControlsEvents.txt"
         nativeMethodList.SaveToFile(FPathToJavaTemplates+DirectorySeparator+'Controls.native');
 
@@ -1179,17 +1313,6 @@ begin
 
       nativeMethodList.Free;
       tempList.Free;
-
-      cbBuildSystem.Items.Clear;
-      if FPathToAndroidSDK <> '' then
-      begin
-        if IsSdkToolsAntEnable then
-        begin
-          cbBuildSystem.Items.Add('Ant');
-          cbBuildSystem.ItemIndex:= 0;
-          cbBuildSystem.Text:='Ant';
-        end;
-      end;
 
     finally
       Free;
@@ -1199,42 +1322,12 @@ begin
 end;
 
 function TFormWorkspace.HasBuildTools(platform: integer;  out outBuildTool: string): boolean;
-var
-  lisDir: TStringList;
-  numberAsString, auxStr: string;
-  i, builderNumber: integer;
 begin
-  Result:= False;
-  lisDir:= TStringList.Create;   //C:\adt32\sdk\build-tools\19.1.0
-  FindAllDirectories(lisDir, IncludeTrailingPathDelimiter(FPathToAndroidSDK)+'build-tools', False);
-  if lisDir.Count > 0 then
-  begin
-    for i:=0 to lisDir.Count-1 do
-    begin
-       auxStr:= ExtractFileName(lisDir.Strings[i]);
-       lisDir.Strings[i]:=auxStr;
-    end;
-    lisDir.Sorted:=True;
-    for i:= 0 to lisDir.Count-1 do
-    begin
-       auxStr:= lisDir.Strings[i];
-       if auxStr <> '' then    //19.1.0
-       begin
-           numberAsString:= Copy(auxStr, 1 , 2);  //19
-           if IsAllCharNumber(PChar(numberAsString)) then
-           begin
-             builderNumber:=  StrToInt(numberAsString);
-             if  platform <= builderNumber then
-             begin
-               outBuildTool:= auxStr; //25.0.3
-               Result:= True;
-               break;
-             end;
-           end;
-       end;
-    end;
-  end;
-  lisDir.free;
+  Result:= True;
+  if  platform < 30 then
+     outBuildTool:= '29.0.3'
+  else
+     outBuildTool:= '30.0.3';
 end;
 
 function TFormWorkspace.IsSdkToolsAntEnable: boolean;
@@ -1265,22 +1358,123 @@ begin
   else Result:= FPathToSmartDesigner;
 end;
 
+procedure TFormWorkspace.WarningCheckingJDK_21(javaVersionBigNumber: string; grVersion:string);
+begin
+   MessageDlg('Inconsistent settings:' + sLineBreak +
+              '  Java JDK '+ javaVersionBigNumber + sLineBreak +
+              '  Can''t run Gradle Version < 8.5' + sLineBreak + sLineBreak +
+              '  Solution: -> upgrade Gradle ['+grVersion+'] to  Version >= 8.5'  + sLineBreak +
+              '               or ' + sLineBreak +
+              '            -> downgrade to JDK 17', mtWarning, [mbOk], 0);
+
+end;
+
+
+procedure TFormWorkspace.WarningCheckingJDK_17(javaVersionBigNumber: string; grVersion:string);
+begin
+   MessageDlg('Inconsistent settings:' + sLineBreak +
+              '  Java JDK '+ javaVersionBigNumber + sLineBreak +
+              '  Can''t run Gradle Version < 8.1.1' + sLineBreak + sLineBreak +
+              '  Solution: -> upgrade Gradle ['+grVersion+'] to  Version >= 8.1.1'  + sLineBreak +
+              '               or ' + sLineBreak +
+              '            -> downgrade to JDK 11', mtWarning, [mbOk], 0);
+
+end;
+
+procedure TFormWorkspace.WarningCheckingJDK_11(javaVersionBigNumber: string; grVersion:string);
+begin
+   MessageDlg('Inconsistent settings:' + sLineBreak +
+              '  Java JDK '+ javaVersionBigNumber + sLineBreak +
+              '  Can''t run Gradle Version < 6.7.1' + sLineBreak + sLineBreak +
+              '  Solution: -> upgrade Gradle ['+grVersion+'] to  Version >= 6.7.1'  + sLineBreak +
+              '               or ' + sLineBreak +
+              '            -> downgrade to JDK 1.8', mtWarning, [mbOk], 0);
+
+end;
+procedure TFormWorkspace.WarningCheckingJDK_8(javaVersionBigNumber: string; grVersion:string); //JDK 1.8
+begin
+
+MessageDlg('Inconsistent settings::' + sLineBreak +
+            '  Java JDK '+ javaVersionBigNumber + sLineBreak +
+            '  Can''t run Gradle Version > 6.7 ' + sLineBreak + sLineBreak +
+            '  Solution: -> upgrade to JDK 11' + sLineBreak +
+            '               or' + sLineBreak +
+            '            -> downgrade Gradle ['+grVersion+'] to Version <= 6.7', mtWarning, [mbOk], 0);
+end;
+
+procedure TFormWorkspace.CheckingSettingsCompatibility;
+var
+  strGV, auxGrVer: string;
+  intGV: integer;
+  gvBigNumber: integer;
+begin
+
+  gvBigNumber:= GetGradleVersionAsBigNumber(FGradleVersion);
+  auxGrVer:= FGradleVersion;
+  strGV:= SplitStr(auxGrVer,  '.');
+  intGV:= StrToInt(strGV);
+
+  if intGV = 8 then  //JDK 11 - Java 11 need Gradle version >=  6.7.1 -- targetApi 33
+  begin
+    if FJavaMainVersion = '1' then WarningCheckingJDK_8(FJavaBIgVersion, FGradleVersion); //jdk 1.8
+    if gvBigNumber < 850 then
+    begin
+      if FJavaMainVersion = '21' then WarningCheckingJDK_21(FJavaBIgVersion, FGradleVersion); //jdk 17
+    end;
+  end;
+
+  if intGV = 7 then   //JDK 11
+  begin
+    if FJavaMainVersion = '1' then WarningCheckingJDK_8(FJavaBIgVersion, FGradleVersion)   //1.8
+    else if FJavaMainVersion = '17' then WarningCheckingJDK_17(FJavaBIgVersion, FGradleVersion) //17
+    else if FJavaMainVersion = '21' then WarningCheckingJDK_21(FJavaBIgVersion, FGradleVersion);
+  end;
+
+  if intGV = 6 then     //JDK 1.8 need Gradle version <=  6.7 .... and JDK 11 >= 6.7.1
+  begin
+     if  gvBigNumber >= 671 then //JDK 11   //Tested Gradle 6.7.1
+     begin
+        if FJavaMainVersion = '1' then WarningCheckingJDK_8(FJavaBIgVersion, FGradleVersion); //1.8
+     end
+     else                      //JDK 1.8
+     begin
+        if FJavaMainVersion = '11' then WarningCheckingJDK_11(FJavaBIgVersion, FGradleVersion)
+        else if FJavaMainVersion = '17' then WarningCheckingJDK_17(FJavaBIgVersion, FGradleVersion)
+        else if FJavaMainVersion = '21' then WarningCheckingJDK_21(FJavaBIgVersion, FGradleVersion);
+     end;
+  end;
+
+  if intGV < 6 then  //JDK 1.8
+  begin
+     if FJavaMainVersion = '11' then WarningCheckingJDK_11(FJavaBIgVersion, FGradleVersion)
+     else if FJavaMainVersion = '17' then WarningCheckingJDK_17(FJavaBIgVersion, FGradleVersion)
+     else if FJavaMainVersion = '21' then WarningCheckingJDK_21(FJavaBIgVersion, FGradleVersion);
+  end;
+
+end;
+
 procedure TFormWorkspace.FormActivate(Sender: TObject);
 var
   listDirectories: TStringList;
   i, count, p: integer;
 begin
+  FRawJniJClassWrapperPath:= '';
 
   EditPathToWorkspace.Left:= 8; // try fix hidpi bug
   ComboSelectProjectName.Left:= 8;  // try fix hidpi bug
 
   ListBoxTargetAPI.Clear;  //SDK
-  ListBoxTargetAPI.Items.Add(IntToStr(FMaxSdkPlatform));
+  if FMaxSdkPlatform > 0 then
+  begin
+      ListBoxTargetAPI.Items.Add(IntToStr(FMaxSdkPlatform));
+      ListBoxTargetAPI.ItemIndex:= 0;
+      StatusBarInfo.Panels.Items[2].Text:='[Target] '+ GetCodeNameByApi(ListBoxTargetAPI.Items[ListBoxTargetAPI.ItemIndex]);
+  end;
 
-  ListBoxTargetAPI.ItemIndex:= 0;
-  StatusBarInfo.Panels.Items[2].Text:='[Target] '+ GetCodeNameByApi(ListBoxTargetAPI.Items[ListBoxTargetAPI.ItemIndex]);
 
-  ListBoxMinSDK.ItemIndex:= 1;
+  if ListBoxMinSDK.ItemIndex <  0 then
+    ListBoxMinSDK.ItemIndex:= 1;
+
   FMinApi:= ListBoxMinSDK.Items[ListBoxMinSDK.ItemIndex];
   StatusBarInfo.Panels.Items[1].Text:= '[MinSdk] '+GetTextByListIndex(ListBoxMinSDK.ItemIndex);
 
@@ -1305,7 +1499,6 @@ begin
 
   Self.RGInstruction.ItemIndex:= FInstructionSetIndex;
 
-
   //NEW! App Templates!
   listDirectories:= TStringList.Create;
   try
@@ -1325,11 +1518,44 @@ begin
 
   FSupport:= False; //[old] supporte library need "gradle" and "targetApi >= 29"
 
+  //cbBuildSystem   is sorted!
+  if FHasSdkToolsAnt then
+  begin
+    cbBuildSystem.Items.Add('Ant');
+  end;
+
+  if FPathToGradle <> '' then
+  begin
+     cbBuildSystem.Items.Add('Gradle');
+  end;
+
+  if cbBuildSystem.Items.Count > 0 then
+     cbBuildSystem.ItemIndex:= 0;
+
+  ListBoxMinSDK.ItemIndex:= 1;
+  if cbBuildSystem.Text = 'Gradle' then
+  begin
+     ListBoxMinSDK.ItemIndex:= 10;  //api 23
+     ComboBoxTheme.ItemIndex:= 2;   //AppCompat.Light.NoActionBar
+     ComboBoxThemeColor.Enabled:= True;
+     ComboBoxThemeColor.ItemIndex:= 1; //blue
+  end;
+
+  if FPathToJavaJDK <> '' then
+    TryProduceJavaVersion(FPathToJavaJDK);
+
+  if FPathToGradle <> '' then
+     FGradleVersion:= GetGradleVersion(FPathToGradle);
+
+  if (FModuleType = 1) or (FModuleType = 3)  then
+       SpeedButtonHelper.Glyph.LoadFromFile(FPathToJavaTemplates+DirectorySeparator+
+                                              'icons'+DirectorySeparator+'open.bmp');
+
+  CheckingSettingsCompatibility;   //LAMW 0.8.6.3
+
 end;
 
 procedure TFormWorkspace.ComboBoxThemeChange(Sender: TObject);
-var
-  index, intTargetApi: integer;
 begin
 
   if Pos('AppCompat', ComboBoxTheme.Text) > 0 then
@@ -1338,63 +1564,26 @@ begin
 
     FSupport:= True;  //default: old library Supported!
 
-    CheckBoxGeneric.Visible:= True;  //that is: can enable kotlin option...
+    //CheckBoxGeneric.Visible:= True;  //TODO that is: can enable kotlin option...
 
     if ComboBoxThemeColor.ItemIndex = 0 then ComboBoxThemeColor.ItemIndex:= 1; //blue
 
-    if (FMaxSdkPlatform < 30) or (FPathToGradle = '')   then
+    if cbBuildSystem.Items.Count > 1 then   //cbBuildSystem is sorted!
     begin
-      ShowMessage('Warning/Recomendation:'+
-               sLineBreak+
-               sLineBreak+'[LAMW 0.8.6.2] "AppCompat" [material] theme need:'+
-               sLineBreak+' 1. Java JDK 1.8'+
-               sLineBreak+' 2. Gradle 6.6.1 [https://gradle.org/next-steps/?version=6.6.1&format=bin]' +
-               sLineBreak+' 3. Android SDK "plataforms" 30 + "build-tools" 30.0.2'+
-               sLineBreak+' 4. Android SDK/Extra  "Support Repository"'+
-               sLineBreak+' 5. Android SDK/Extra  "Support Library"'+
-               sLineBreak+' 6. Android SDK/Extra  "Google Repository"'+
-               sLineBreak+' 7. Android SDK/Extra  "Google Play Services"'+
-               sLineBreak+' '+
-               sLineBreak+' Hint: "Ctrl + C" to copy this content to Clipboard!');
-
-      ComboBoxTheme.ItemIndex:= 0;
-      ComboBoxTheme.Text:= 'DeviceDefault';
-
-      Exit;
-
-    end;
-
-    if Pos('Gradle',cbBuildSystem.Items.Text) > 0 then //Apk system builder...
-    begin
-      index:= cbBuildSystem.Items.IndexOf('Gradle');
-      cbBuildSystem.ItemIndex:= index;
+      cbBuildSystem.ItemIndex:= 1;
       cbBuildSystem.Text:= 'Gradle';
-      cbBuildSystemCloseUp(Self);
-    end;
-
-    intTargetApi:= StrToInt(ListBoxTargetAPI.Text);
-
-    if intTargetApi < 29 then
+    end
+    else
     begin
-       if Pos('29',ListBoxTargetAPI.Items.Text) > 0 then
+       if cbBuildSystem.Items.Count = 1 then
        begin
-          index:= ListBoxTargetAPI.Items.IndexOf('29');
-          ListBoxTargetAPI.ItemIndex:= index;
-          ListBoxTargetAPI.Text:= '29';
-          ListBoxTargetAPICloseUp(Self);
+          cbBuildSystem.ItemIndex:= 0;
+          cbBuildSystem.Text:= 'Gradle';
        end;
     end;
 
-    if Pos('Gradle',cbBuildSystem.Items.Text) > 0 then //Apk system builder...
-    begin
-      index:= cbBuildSystem.Items.IndexOf('Gradle');
-      cbBuildSystem.ItemIndex:= index;
-      cbBuildSystem.Text:= 'Gradle';
-      cbBuildSystemCloseUp(Self);
-    end;
-
-    if ListBoxMinSDK.ItemIndex < 1 then ListBoxMinSDK.ItemIndex:= 1;   //Api 14
-
+    if  ListBoxMinSDK.ItemIndex < 10  then
+        ListBoxMinSDK.ItemIndex:= 10;   //Api 23
   end
   else
   begin
@@ -1404,15 +1593,19 @@ begin
     ComboBoxThemeColor.Enabled:= False;
   end;
 
-  if Pos('GDXGame', ComboBoxTheme.Text) > 0 then
+  if cbBuildSystem.Text = 'Gradle' then
   begin
-    if Pos('Gradle',cbBuildSystem.Items.Text) > 0 then
-    begin
-      index:= cbBuildSystem.Items.IndexOf('Gradle');
-      cbBuildSystem.ItemIndex:= index;
-      cbBuildSystem.Text:= 'Gradle';
-      cbBuildSystemCloseUp(Self);
-    end;
+    if Pos('DeviceDefault', ComboBoxTheme.Text) > 0 then
+      ShowMessage('hint: '+SLineBreak+
+                  '  Select "AppCompat" theme to match the' + SLineBreak+
+                  '  modern "Material Design" look and feel...');
+
+    if Pos('Holo', ComboBoxTheme.Text) > 0 then
+    ShowMessage('hint: '+SLineBreak+
+                '  Select "AppCompat" theme to match the' + SLineBreak+
+                '  modern "Material Design" look and feel...');
+
+
   end;
 
 end;
@@ -1460,7 +1653,6 @@ begin
   //using the "CheckBoxGeneric" for two totally different things... sorry!
 
   IsKotlinSupported:= False;
-  FRawLibraryChecked:= False;
 
   if TCheckBox(Sender).Checked then
   begin
@@ -1472,41 +1664,100 @@ begin
 
        IsKotlinSupported:= False; //True;
        TCheckBox(Sender).Checked:= False;
-
-       FRawLibraryChecked:= False;
     end
     else
     begin
       IsKotlinSupported:= False;
-      FRawLibraryChecked:= True;
     end;
+  end;
+
+  if FModuleType = 3 then  //FModuleType >= 3
+  begin
+     if (FModuleType =  3) and (not CheckBoxGeneric.Checked) then
+     begin
+       ShowMessage('warning: pure .so pascal header not support yet! ');
+       CheckBoxGeneric.Checked:= True;
+       //FModuleType:= 4;
+     end;
   end;
 
 end;
 
+procedure TFormWorkspace.TryProduceJavaVersion(pathToJDK: string);
+var
+  list: TStringList;
+  i, p, len: integer;
+  version, aux, mainVersion: string;
+begin
+   list:= TStringList.Create;
+   //list.LoadFromFile('C:\Program Files\Eclipse Adoptium\jdk-11.0.21.9-hotspot\release');
+   //list.LoadFromFile('C:\Program Files\Java\jdk1.8.0_151\release');
+   list.LoadFromFile(pathToJDK + PathDelim + 'release');
+   aux:='';
+   i:= 0;
+   while (aux = '') and (i < list.Count) do
+   begin
+      p:= Pos('JAVA_VERSION=', list.Strings[i]);
+      if p > 0 then
+      begin
+        aux:= list.Strings[i];
+        i:= list.Count; //exit while
+      end;
+      i:= i + 1;
+   end;
+   if p > 0 then
+   begin
+     len:= Length('JAVA_VERSION=');
+     version:= Trim(Copy(aux, p+len, 15));
+     aux:= TrimChar(version, '"');
+     FJavaBigVersion:= aux;  //11.0.21  or 1.8.0_151
+     mainVersion:= SplitStr(aux, '.');  //main number: 11 or 17 or 21 or 1 (ex.: 1.8)
+     FJavaMainVersion:=Trim(mainVersion);
+   end;
+   list.Free;
+end;
+
 procedure TFormWorkspace.cbBuildSystemCloseUp(Sender: TObject);
 var
-  s: string;
-  intTargetApi: integer;
+  auxStr: string;
+  numberVersion: integer;
+  bigNumber: integer;
 begin
-
   if (cbBuildSystem.Text = 'Gradle') then
   begin
-    intTargetApi:= StrToInt(ListBoxTargetAPI.Text);
-    if intTargetApi >= 29 then
-         FSupport:= True //add [old] support library!
+     ListBoxMinSDK.ItemIndex:= 10; //api 23
+     if Pos('.', FGradleVersion) > 0 then
+     begin
+       bigNumber:= GetGradleVersionAsBigNumber(FGradleVersion);
+
+       auxStr:= FGradleVersion;
+       numberVersion:= StrToInt(SplitStr(auxStr,'.'));
+       if numberVersion > 6 then
+       begin
+          if FJavaMainVersion = '1' then  //1.8
+              MessageDlg('warning: "Gradle ['+FGradleVersion+']" need java JDK 11', mtWarning, [mbOk], 0);
+       end;
+       if numberVersion < 7 then   //6.6.1
+       begin
+          if bigNumber < 671 then
+          begin
+              if FJavaMainVersion = '11' then
+                 MessageDlg('warning: Gradle ['+FGradleVersion+']'+sLineBreak+'-> Gradle Version < "6.7.1" need java JDK 1.8', mtWarning, [mbOk], 0);
+          end;
+       end;
+
+     end;
   end
-  else
-     FSupport:= False; //don't get [old] "support" libraries...
-
-  if (cbBuildSystem.Text = 'Gradle') and ( Pos('AppCompat', ComboBoxTheme.Text) > 0) then
+  else if (cbBuildSystem.Text = 'Ant') then
   begin
-    FSupport:= True; //by default ...
-    s := LowerCase(ExtractFileName(ExcludeTrailingPathDelimiter(LamwGlobalSettings.PathToJavaJDK)));
-    if Pos('1.7.', s) > 0 then
-      MessageDlg('[LAMW 0.8.6.2] "AppCompat" [material] theme need JDK 1.8 + Gradle 6.6.1 [or up]!', mtWarning, [mbOk], 0);
+     if FJavaMainVersion = '11' then
+        MessageDlg('warning: "Ant" need java JDK 1.8', mtWarning, [mbOk], 0);
   end;
+end;
 
+procedure TFormWorkspace.CheckBoxAutoConfigGradleChange(Sender: TObject);
+begin
+   FKeepMyBuildGradleWhenReopen:= CheckBoxAutoConfigGradle.Checked;
 end;
 
 procedure TFormWorkspace.ComboSelectProjectNameKeyPress(Sender: TObject;
@@ -1519,13 +1770,12 @@ begin
   end;
 end;
 
-
 procedure TFormWorkspace.EditPathToWorkspaceExit(Sender: TObject);
 begin
   FPathToWorkspace:= EditPathToWorkspace.Text;
   if EditPathToWorkspace.Text = '' then
   begin
-     ShowMessage('Please,  enter path to projects [workspace] folder...');
+     ShowMessage('Please,  enter the path to your projects [workspace] folder...');
   end;
 
   if Pos(' ', EditPathToWorkspace.Text) > 0 then
@@ -1555,19 +1805,180 @@ end;
 
 procedure TFormWorkspace.SpeedButton1Click(Sender: TObject);
 begin
-  ShowMessage('Warning/Recomendation:'+
+
+   if FModuleType = 0 then
+      ShowMessage('Information:'+
            sLineBreak+
-           sLineBreak+'[LAMW 0.8.6.2] "AppCompat" [material] theme need:'+
-           sLineBreak+' 1. Java JDK 1.8'+
-           sLineBreak+' 2. Gradle 6.6.1 [https://gradle.org/next-steps/?version=6.6.1&format=bin] or up' +
-           sLineBreak+' 3. Android SDK "plataforms" 30 + "build-tools" 30.0.2'+
-           sLineBreak+' 4. Android SDK/Extra  "Support Repository"'+
-           sLineBreak+' 5. Android SDK/Extra  "Support Library"'+
-           sLineBreak+' 6. Android SDK/Extra  "Google Repository"'+
-           sLineBreak+' 7. Android SDK/Extra  "Google Play Services"'+
-           sLineBreak+' '+
-           sLineBreak+' Hint: "Ctrl + C" to copy this content to Clipboard!');
+           sLineBreak+'[LAMW 0.8.6.4] recomentations:'+
+           sLineBreak+' a1. Java JDK 11 + Gradle version >= 6.7.1' +
+           sLineBreak+' a2. Android SDK "plataforms" 33 + "build-tools" 33.0.2'+ sLineBreak +
+           sLineBreak+' b1. Java JDK 17 + Gradle version >= 8.1.1' +
+           sLineBreak+' b2. Android SDK "plataforms" 34 + "build-tools" 34.0.0'+ sLineBreak +
+           sLineBreak+' c1. Java JDK 21 + Gradle version >= 8.5.0' +
+           sLineBreak+' c2. Android SDK "plataforms" 34 + "build-tools" 34.0.0');
+
+   If (ModuleType = 1) or (ModuleType = 3) then
+      ShowMessage('Load a [java] class content native methods....');
+
+
 end;
+
+function GetJavaClassName(selList: TStringList): string;
+var
+  clsLine: string;
+  foundClass: boolean;
+  i, index: integer;
+begin
+    if selList.Text = '' then Exit;
+    foundClass:= False;
+    i:= 0;
+    while (not foundClass) and (i < selList.Count) do
+    begin
+       clsLine:= selList.Strings[i];
+       if Pos('class ', clsLine) > 0 then foundClass:= True;
+       Inc(i);
+    end;
+    if foundClass then
+    begin
+      clsLine:= Trim(clsLine); //cleanup...
+      if Pos('public ', clsLine) > 0 then   //public class jMyComponent
+      begin
+         SplitStr(clsLine, ' ');  //remove "public" word...
+         clsLine:= Trim(clsLine); //cleanup...
+      end;
+      SplitStr(clsLine, ' ');  //remove "class" word...
+      clsLine:= Trim(clsLine); //cleanup...
+
+      if Pos(' ', clsLine) > 0  then index:= Pos(' ', clsLine)
+      else if Pos('{', clsLine) > 0 then index:= Pos('{', clsLine)
+      else if Pos(#10, clsLine) > 0 then index:= Pos(#10, clsLine);
+
+      Result:= Trim(Copy(clsLine,1,index-1));  //get class name
+   end;
+end;
+
+procedure TFormWorkspace.SpeedButtonHelperClick(Sender: TObject);
+var
+   frm: TFormAndroidManifest;
+   i, count, p: integer;
+   list: TStringList;
+   auxPackName: string;
+   //auxJavaClassName: string;
+begin
+    if (FModuleType = 0) or  (FModuleType = 2) then  //FModuleType < 3
+    begin
+      frm:= TFormAndroidManifest.Create(nil);
+      if frm.ShowModal = mrOK then
+      begin
+         if FManifestData = nil then
+             FManifestData:= TStringList.Create
+         else
+             FManifestData.Clear;
+
+         count:= frm.ListBoxManifestPermission.Count;
+         for i:= 0 to count-1 do
+         begin
+           if frm.ListBoxManifestPermission.Items.Strings[i] <> '' then
+              FManifestData.Add(Trim(frm.ListBoxManifestPermission.Items.Strings[i]));
+         end;
+      end;
+      frm.Free;
+    end
+    else if (FModuleType = 1) or  (FModuleType = 3) then
+    begin //jniLibrary  //
+      if OpenDialog1.Execute then
+      begin
+
+         FRawJniJClassWrapperPath:= OpenDialog1.FileName;
+
+         list:= TStringList.Create;
+         list.LoadFromFile(FRawJniJClassWrapperPath);
+
+         if Pos('native ', list.Text) > 0 then
+         begin
+            ShowMessage(list.Text)
+         end
+         else
+         begin
+            ShowMessage('warning: the [java] class don''t have "native" method....');
+            Exit;
+         end;
+         i:= 0;
+         auxPackName:= '';
+         while (auxPackName = '') do
+         begin
+            p:= Pos('package ', list.Strings[i]);
+            if p > 0 then
+            begin
+                auxPackName:= Trim(Copy(list.Strings[i], p+Length('package '), 1000));
+                p:= Pos(';',auxPackName);
+                auxPackName:= Trim(Copy(auxPackName, 1,  p-1));
+            end;
+            i:= i+1;
+         end;
+
+         p:= Pos('main', FRawJniJClassWrapperPath);
+         if  p > 0 then
+            FAndroidStudioJniLibsFolderPath:= Copy(FRawJniJClassWrapperPath, 1, p+3);
+
+         FJavaClassName:= GetJavaClassName(list);
+         ComboSelectProjectName.Text:=FJavaClassName;
+         EditPackagePrefaceName.Text:= auxPackName;
+
+         list.Free;
+      end;
+    end;
+end;
+
+procedure TFormWorkspace.SpeedButtonSettingsClick(Sender: TObject);
+var
+  auxStr: string;
+  numberVersion: integer;
+  bigNumber: integer;
+begin
+  MessageDlg('System Settings:' + sLineBreak +
+                  '  Java JDK: '+ FJavaBigVersion + sLineBreak +
+                  '  Gradle: ' + FGradleVersion + sLineBreak +  sLineBreak +
+               'About Java and Gradle:' +  sLineBreak +
+                     '  Java 8 (JDK 1.8) need Gradle version <=  6.7' + sLineBreak +
+                     '  Java 11 need Gradle version >=  6.7.1'  + sLineBreak +  sLineBreak +
+                     '  Java 17 need Gradle version >=  8.1.1'  + sLineBreak +  sLineBreak +
+                     '  Java 21 need Gradle version >=  8.5.0'  + sLineBreak +  sLineBreak +
+               'About Ant:' +  sLineBreak +
+                     '  Ant need Java 8 (JDK 1.8) and Android SDK r25.2.5'
+                  , mtInformation, [mbOk], 0);
+
+  if (cbBuildSystem.Text = 'Gradle') then
+  begin
+     if Pos('.', FGradleVersion) > 0 then
+     begin
+       bigNumber:= GetGradleVersionAsBigNumber(FGradleVersion);
+
+       auxStr:= FGradleVersion;
+       numberVersion:= StrToInt(SplitStr(auxStr,'.'));
+       if numberVersion > 6 then
+       begin
+          if FJavaMainVersion = '1' then  //1.8
+              MessageDlg('warning: "Gradle ['+FGradleVersion+']" need java JDK 11', mtWarning, [mbOk], 0);
+       end;
+       if numberVersion < 7 then   //6.6.1
+       begin
+          if bigNumber < 671 then
+          begin
+              if FJavaMainVersion = '11' then
+                 MessageDlg('warning: Gradle ['+FGradleVersion+']'+sLineBreak+'-> Gradle Version < "6.7.1" need java JDK 1.8', mtWarning, [mbOk], 0);
+          end;
+       end;
+
+     end;
+  end
+  else if (cbBuildSystem.Text = 'Ant') then
+  begin
+     if FJavaMainVersion = '11' then
+        MessageDlg('warning: "Ant" need java JDK 1.8', mtWarning, [mbOk], 0);
+  end;
+end;
+
 
 procedure TFormWorkspace.SpeedButtonSDKPlusClick(Sender: TObject);
 var
@@ -1594,7 +2005,7 @@ begin
              begin
                if HasBuildTools(intApi, outBuildTool) then
                begin
-                    ListBoxTargetAPI.Items.Add(strApi);
+                 ListBoxTargetAPI.Items.Add(strApi);
                end;
              end;
          end;
@@ -1613,178 +2024,194 @@ begin
 
 end;
 
+function TFormWorkspace.GetGradleVersionAsBigNumber(gradleVersionAsString: string): integer;
+var
+  auxStr: string;
+  lenAuxStr: integer;
+begin
+  auxStr:= StringReplace(gradleVersionAsString,'.', '', [rfReplaceAll]); //6.6.1
+  lenAuxStr:=  Length(auxStr);
+  if lenAuxStr < 3 then auxStr:= auxStr + '0';   //6.8 -> 680
+  Result:= StrToInt(Trim(auxStr));  //661
+end;
+
 procedure TFormWorkspace.SpeedButtonHintThemeClick(Sender: TObject);
 begin
-  ShowMessage('Warning/Recomendation:'+
-           sLineBreak+
-           sLineBreak+'[LAMW 0.8.6.2] "AppCompat" [material] theme need:'+
-           sLineBreak+' 1. Java JDK 1.8'+
-           sLineBreak+' 2. Gradle 6.6.1 [https://gradle.org/next-steps/?version=6.6.1&format=bin]' +
-           sLineBreak+' 3. Android SDK "plataforms" 30 + "build-tools" 30.0.2'+
-           sLineBreak+' 4. Android SDK/Extra  "Support Repository"'+
-           sLineBreak+' 5. Android SDK/Extra  "Support Library"'+
-           sLineBreak+' 6. Android SDK/Extra  "Google Repository"'+
-           sLineBreak+' 7. Android SDK/Extra  "Google Play Services"');
+  ShowMessage('Hint: You can export a Project as Theme/Template!' + sLineBreak + sLineBreak +
+  ' Go to IDE menu:  "Tools" -> '+ sLineBreak +
+  ' "[LAMW]..." -> "Export LAMW Project as Template/Theme..."' + sLineBreak + sLineBreak +
+  '                          Have Fun!');
 end;
 
 function TFormWorkspace.GetBuildSystem: string;
-begin
-  Result:= cbBuildSystem.Text;
-end;
-
-function TFormWorkspace.GetGradleVersion(out tagVersion: integer): string;
 var
-   p, posLastDelim: integer;
-   strAux: string;
-   numberAsString: string;
-   userString: string;
+  bigNumber: integer;
 begin
-  Result:='';
-  if FPathToGradle <> '' then
+  if cbBuildSystem.Text <> '' then
   begin
-    strAux:=ExcludeTrailingPathDelimiter(FPathToGradle);
-    posLastDelim:= LastDelimiter(PathDelim, strAux);
-    strAux:= Copy(strAux, posLastDelim+1, MaxInt);  //gradle-3.3
+     Result:= cbBuildSystem.Text;
+  end
+  else
+  begin
+     bigNumber:= GetGradleVersionAsBigNumber(FGradleVersion);
 
-    p:=1;
-    //skip characters that do not represent a version number
-    while (p<=Length(strAux)) AND (NOT (strAux[p] in ['0'..'9','.'])) do Inc(p);
-    if (p<=Length(strAux)) then
-    begin
-        Result:= Copy(strAux, p, MaxInt);  // 3.3
-
-        if Result = '4.10'   then Result:= '4.9.1'
-        else if Result = '4.10.1' then Result:= '4.9.2'
-        else if Result = '4.10.2' then Result:= '4.9.3'
-        else if Result = '4.10.3' then Result:= '4.9.4';
-
-        numberAsString:= StringReplace(Result,'.', '', [rfReplaceAll]); // 33
-        if Length(numberAsString) < 3 then
+     if FJavaMainVersion = '11' then
+     begin
+        Result:= 'Gradle';
+        if bigNumber < 671 then
+          ShowMessage('warning: Java SDK 11 need gradle version >= 6.7.1');
+     end
+     else //FJavaMainVersion= '1'  ->  1.8
+     begin
+        if IsSdkToolsAntEnable then
         begin
-           numberAsString:= numberAsString+ '0'  //330
-        end;
-        tagVersion:= StrToInt(Trim(numberAsString));
-    end;
-
-    if Result = '' then  //gradle-6.6.1
-    begin
-      userString:= '6.6.1';
-      if InputQuery('Gradle', 'Please, Enter Gradle Version ', userString) then
-      begin
-        if UserString <> '' then
-        begin
-           Result:= Trim(UserString);  // 4.1
-           numberAsString:= StringReplace(Result,'.', '', [rfReplaceAll]); // 41
-           if Length(numberAsString) < 3 then
-           begin
-               numberAsString:= numberAsString+ '0'  //410
-           end;
-           tagVersion:= StrToInt(Trim(numberAsString));
+           Result:= 'Ant';
+           ShowMessage('warning: using "Ant" as build system...');
         end
-        else
-        begin
-          Result:= '6.6.1';
-          numberAsString:= StringReplace(Result,'.', '', [rfReplaceAll]); // 41
-          if Length(numberAsString) < 3 then
-          begin
-             numberAsString:= numberAsString+ '0'  //410
-          end;
-          tagVersion:= StrToInt(Trim(numberAsString));
-        end;
+        else  Result:= 'Gradle';
+     end;
+  end;
+end;
 
-      end;
+function TFormWorkspace.TryProduceGradleVersion(pathToGradle: string): string;
+var
+   AProcess: TProcess;
+   AStringList: TStringList;
+   gradle, ext, version, aux: string;
+   i, p, len, posFinal, count: integer;
+begin
+  ext:='';
+  {$IFDEF windows}
+    ext:='.bat';
+  {$Endif}
+  gradle:= 'gradle'  + ext;
 
+  AStringList:= TStringList.Create;
+
+  AProcess := TProcess.Create(nil);
+  AProcess.Executable := pathToGradle + PathDelim + 'bin' + PathDelim + gradle;  //C:\android\gradle-6.8.3\bin\gradle.bat
+  AProcess.Options:=AProcess.Options + [poUsePipes, poWaitOnExit, poNoConsole];
+  AProcess.Parameters.Add('-version');
+
+  Application.ProcessMessages;
+  Screen.Cursor:= crHourGlass;
+  try
+    AProcess.Execute;
+    AStringList.LoadFromStream(AProcess.Output);
+  finally
+    AProcess.Free;
+    Screen.Cursor:= crDefault;
+  end;
+
+  if AStringList.Count > 0 then
+  begin
+    version:= '';
+    i:= 0;
+    while i < AStringList.Count do
+    begin
+       p:= Pos('Gradle', AStringList.Strings[i] );
+       if p > 0 then
+       begin
+          version:=  AStringList.Strings[i];
+          i:= AStringList.Count; //exit while
+       end;
+       i:= i +1;
+    end;
+    posFinal:= LastDelimiter('.', version) + 1; //posFinal
+    len:= Length('Gradle');
+    count:= posFinal - len;
+    aux:= Copy(version, p+len, count);
+    Result:= Trim(StringReplace(aux,'!', '', [rfReplaceAll])); //mess ??
+  end;
+  AStringList.Free;
+end;
+
+function TFormWorkspace.GetGradleVersion(pathGradle:string): string;
+var
+   list: TStringList;
+begin
+    if not FileExists(pathGradle+PathDelim+'version.txt') then
+    begin
+      Result:= TryProduceGradleVersion(pathGradle);
+    end
+    else
+    begin
+        list:=TStringList.Create;
+        list.LoadFromFile(pathGradle+PathDelim+'version.txt');
+        Result:= Trim(list.Text);
+        list.Free;
     end;
 
-  end;
-
+    if Result = '' then
+    begin
+        list:=TStringList.Create;
+        list.Text:= Trim(InputBox('warning: Missing Gradle Version', 'Enter Gradle version [ex. 7.6.3]',''));
+        if Pos('.', list.Text)  > 0 then
+        begin
+           Result:= list.Text;
+           list.SaveToFile(pathGradle+PathDelim+'version.txt');
+        end;
+        list.Free;
+    end;
 end;
 
-function TFormWorkspace.GetBuildTool(sdkApi: integer): string;
-var
-  tempOutBuildTool: string;
-begin
-  Result:= '';
-  if HasBuildTools(sdkApi, tempOutBuildTool) then
-  begin
-     Result:= tempOutBuildTool;  //28.0.3
-  end;
-end;
 
 //run before "OnFormActive called by "AndroidWizard_inf.pas""
 procedure TFormWorkspace.LoadSettings(const pFilename: string);
 var
   auxInstSet: string;
-  tagVersion: integer;
-  i: integer;
+  i, index: integer;
+  lamwIni: TIniFile;
 begin
   //run before "OnFormActive"
 
   FFileName:= pFilename; //full filename
-
   Self.LoadPathsSettings(FFileName); // //verify if some was missing ...
 
-  with TIniFile.Create(pFilename) do
-  try
+  lamwIni:= TIniFile.Create(FFileName);
+  DoNewPathToJavaTemplate();
 
-    DoNewPathToJavaTemplate();
+  FPathToWorkspace:= lamwIni.ReadString('NewProject','PathToWorkspace', '');
+  FPackagePrefaceName:= lamwIni.ReadString('NewProject','PackagePrefaceName', '');
+  if FPackagePrefaceName = '' then FPackagePrefaceName:=  'org.lamw';
 
-    FPathToWorkspace:= ReadString('NewProject','PathToWorkspace', '');
+  FAntBuildMode:= 'debug';    //default...
+  FTouchtestEnabled:= 'True'; //default
 
-    FPackagePrefaceName:= ReadString('NewProject','PackagePrefaceName', '');
+  FMainActivity:= lamwIni.ReadString('NewProject','MainActivity', '');  //dummy
+  if FMainActivity = '' then FMainActivity:= 'App';
 
-    if FPackagePrefaceName = '' then FPackagePrefaceName:=  'org.lamw';
+  auxInstSet:= lamwIni.ReadString('NewProject','InstructionSet', '');
 
-    FAntBuildMode:= 'debug';    //default...
-    FTouchtestEnabled:= 'True'; //default
+  if not IsAllCharNumber(PChar(auxInstSet)) then
+    auxInstSet:= '1';
 
-    FMainActivity:= ReadString('NewProject','MainActivity', '');  //dummy
-    if FMainActivity = '' then FMainActivity:= 'App';
+  if auxInstSet = '' then auxInstSet:= '1';
+  if auxInstSet = '0' then auxInstSet:='1';
 
-    auxInstSet:= ReadString('NewProject','InstructionSet', '');
+  FInstructionSetIndex:= StrToInt(auxInstSet);
 
-    if not IsAllCharNumber(PChar(auxInstSet)) then
-      auxInstSet:= '1';
+  ComboSelectProjectName.Items.Clear;
 
-    if auxInstSet = '' then auxInstSet:= '1';
-    if auxInstSet = '0' then auxInstSet:='1';
+  if  FPathToWorkspace <> '' then
+    FindAllDirectories(ComboSelectProjectName.Items, FPathToWorkspace, False);
 
-    FInstructionSetIndex:= StrToInt(auxInstSet);
+  FPrebuildOSYS:= lamwIni.ReadString('NewProject','PrebuildOSYS', '');
+  FPathToGradle:= lamwIni.ReadString('NewProject','PathToGradle', '');
 
-    ComboSelectProjectName.Items.Clear;
-
-    if  FPathToWorkspace <> '' then
-      FindAllDirectories(ComboSelectProjectName.Items, FPathToWorkspace, False);
-
-    FPrebuildOSYS:= ReadString('NewProject','PrebuildOSYS', '');
-    FPathToGradle:= ReadString('NewProject','PathToGradle', '');
-
-    if FPathToGradle <> '' then
-    begin
-       FGradleVersion:= GetGradleVersion({out}tagVersion);
-       cbBuildSystem.Items.Add('Gradle');
-       if cbBuildSystem.Items.Count = 1 then
-       begin
-         cbBuildSystem.Text:= 'Gradle';
-         cbBuildSystem.ItemIndex:= 0;
-       end;
-    end;
-
-    FNDKRelease:= ReadString('NewProject','NDKRelease', '');
-    if FNDKRelease <> '' then
-    begin
-       FNDKVersion:= GetNDKVersion(FNDKRelease);
-    end
-    else
-    begin
-       FNDKRelease:= TryGetNDKRelease(FPathToAndroidNDK);
-       FNDKVersion:= GetNDKVersion(FNDKRelease); //18
-       WriteString('NewProject','NDKRelease', FNDKRelease);
-    end;
-
-  finally
-    Free;
+  FNDKRelease:= lamwIni.ReadString('NewProject','NDKRelease', '');
+  if FNDKRelease <> '' then
+  begin
+     FNDKVersion:= GetNDKVersion(FNDKRelease);
+  end
+  else
+  begin
+     FNDKRelease:= TryGetNDKRelease(FPathToAndroidNDK);
+     FNDKVersion:= GetNDKVersion(FNDKRelease); //18
+     lamwIni.WriteString('NewProject','NDKRelease', FNDKRelease);
   end;
+
+  lamwIni.Free;
 
   if FInstructionSetIndex < 0 then  FInstructionSetIndex:= 1;
   FFPUSet:= '';
@@ -1806,18 +2233,34 @@ begin
   if FMaxSdkPlatform = 0 then    //  try fix "android-0"
       FMaxSdkPlatform:= FCandidateSdkPlatform;
 
-  FMaxNdkPlatform:= Self.GetMaxNdkPlatform(FNDKVersion);
+  if FMaxSdkPlatform < 33 then
+       ShowMessage('Warning. Minimum Target API required by "Google Play Store" = 33'+ sLineBreak +
+                   'Please, update your android sdk/platforms folder!' + sLineBreak +
+                   'How to:'+ sLineBreak +
+                   '.open a command line terminal and go to folder "sdk/tools/bin"'+ sLineBreak +
+                   '.run the command  >>sdkmanager --update'+ sLineBreak +
+                   '.run the command  >>sdkmanager "build-tools;33.0.2" "platforms;android-33"');
+
+
   ListBoxNdkPlatform.Clear;
-  for i:= 16 to FMaxNdkPlatform  do  //16 is a good start point...
+  if FNDKVersion > 0 then
   begin
-     ListBoxNdkPlatform.Items.Add(IntToStr(i));
+      FMaxNdkPlatform:= Self.GetMaxNdkPlatform(FNDKVersion); //default = 22
+      for i:= 16 to FMaxNdkPlatform  do  //16 is a good start point...
+      begin
+         ListBoxNdkPlatform.Items.Add(IntToStr(i));
+      end;
   end;
 
   //default '22' is good for old 4.x, 5.x devices compatibility!!!!
   if ListBoxNdkPlatform.Items.Count > 0 then
   begin
-    ListBoxNdkPlatform.ItemIndex:= ListBoxNdkPlatform.Items.IndexOf('22');
-    StatusBarInfo.Panels.Items[0].Text:='[NDK-'+IntToStr(FNDKVersion)+' Api 22]';
+      index:= ListBoxNdkPlatform.Items.IndexOf('22');
+      if index < ListBoxNdkPlatform.Items.Count then 
+      begin
+          ListBoxNdkPlatform.ItemIndex:= index;
+          StatusBarInfo.Panels.Items[0].Text:='[NDK-'+IntToStr(FNDKVersion)+' Api 22]';
+      end;
   end;
 
 end;
@@ -1834,10 +2277,13 @@ begin
       if FInstructionSetIndex >= 0 then
          WriteString('NewProject', 'InstructionSet', IntToStr(Self.FInstructionSetIndex));
 
-      if EditPackagePrefaceName.Text <> '' then
-         WriteString('NewProject', 'PackagePrefaceName', EditPackagePrefaceName.Text)
-      else
-        WriteString('NewProject', 'PackagePrefaceName', 'org.lamw');
+      if FModuleType = 0 then
+      begin
+        if EditPackagePrefaceName.Text <> '' then
+           WriteString('NewProject', 'PackagePrefaceName', EditPackagePrefaceName.Text)
+        else
+          WriteString('NewProject', 'PackagePrefaceName', 'org.lamw');
+      end;
 
       if FPathToJavaTemplates <> '' then
          WriteString('NewProject', 'PathToJavaTemplates', FPathToJavaTemplates)

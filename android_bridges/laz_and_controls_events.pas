@@ -227,17 +227,6 @@ uses
    procedure Java_Event_pOnSignaturePadSigned(env:PJNIEnv;this:JObject;Sender:TObject);
    procedure Java_Event_pOnSignaturePadClear(env:PJNIEnv;this:JObject;Sender:TObject);
 
-   procedure Java_Event_pOnGDXFormShow(env:PJNIEnv;this:JObject;Sender:TObject);
-   procedure Java_Event_pOnGDXFormResize(env:PJNIEnv;this:JObject;Sender:TObject;width:integer;height:integer);
-   procedure Java_Event_pOnGDXFormRender(env:PJNIEnv;this:JObject;Sender:TObject;deltaTime:single);
-   procedure Java_Event_pOnGDXFormClose(env:PJNIEnv;this:JObject;Sender:TObject);
-   procedure Java_Event_pOnGDXFormTouchDown(env:PJNIEnv;this:JObject;Sender:TObject;screenX:integer;screenY:integer;pointer:integer;button:integer);
-   procedure Java_Event_pOnGDXFormTouchUp(env:PJNIEnv;this:JObject;Sender:TObject;screenX:integer;screenY:integer;pointer:integer;button:integer);
-   function Java_Event_pOnGDXFormKeyPressed(env:PJNIEnv;this:JObject;Sender:TObject;keyCode:integer):integer;
-   procedure Java_Event_pOnGDXFormResume(env:PJNIEnv;this:JObject;Sender:TObject);
-   procedure Java_Event_pOnGDXFormPause(env:PJNIEnv;this:JObject;Sender:TObject);
-   procedure Java_Event_pOnGDXFormHide(env:PJNIEnv;this:JObject;Sender:TObject);
-
    procedure Java_Event_pOnMailMessagesCount(env:PJNIEnv;this:JObject;Sender:TObject;count:integer);
    procedure Java_Event_pOnMailMessageRead(env:PJNIEnv;this:JObject;Sender:TObject;position:integer;Header:jString;Date:jString;Subject:jString;ContentType:jString;ContentText:jString;Attachments:jString);
 
@@ -306,6 +295,13 @@ uses
    procedure Java_Event_pWebSocketClientOnException(env:PJNIEnv;this:JObject;Sender:TObject;exceptionMessage:jString);
    procedure Java_Event_pWebSocketClientOnCloseReceived(env:PJNIEnv;this:JObject;Sender:TObject);
 
+   //jsArduinoAflakSerial
+   procedure Java_Event_pOnArduinoAflakSerialAttached(env:PJNIEnv;this:JObject;Sender:TObject;usb:JObject);
+   procedure Java_Event_pOnArduinoAflakSerialDetached(env:PJNIEnv;this:JObject;Sender:TObject);
+   procedure Java_Event_pOnArduinoAflakSerialMessageReceived(env:PJNIEnv;this:JObject;Sender:TObject;jbytesReceived:jbyteArray);
+   procedure Java_Event_pOnArduinoAflakSerialOpened(env:PJNIEnv;this:JObject;Sender:TObject);
+   procedure Java_Event_pOnArduinoAflakSerialStatusChanged(env:PJNIEnv;this:JObject;Sender:TObject;statusMessage:jString);
+
 implementation
 
 uses
@@ -318,10 +314,11 @@ uses
    sfloatingbutton, framelayout,stoolbar, snavigationview, srecyclerview, sbottomnavigationview,
    stablayout, treelistview, customcamera, calendarview, searchview, telephonymanager,
    sadmob, zbarcodescannerview, cmikrotikrouteros, scontinuousscrollableimageview,
-   midimanager, copenmapview, csignaturepad, soundpool, gdxform, cmail, sftpclient,
+   midimanager, copenmapview, csignaturepad, soundpool, cmail, sftpclient,
    ftpclient, cbluetoothspp, selectdirectorydialog, mssqljdbcconnection, customspeechtotext,
    cbillingclient, ctoytimerservice, bluetoothlowenergy,
-   sfirebasepushnotificationlistener, batterymanager, modbus, cwebsocketclient;
+   sfirebasepushnotificationlistener, batterymanager, modbus,
+   cwebsocketclient, ujsarduinoaflakserial, imagebutton;
 
 function GetString(env: PJNIEnv; jstr: JString): string;
 var
@@ -402,7 +399,7 @@ begin
   SetLength(Result, sizeArray);
   env^.GetByteArrayRegion(env, byteArrayData, 0, sizeArray, @Result[0] {target});
 end;
-//-------------
+
 function GetJObjectOfDynArrayOfJByte(env: PJNIEnv; var dataContent: TDynArrayOfJByte):jbyteArray; //jObject;
 var
   newSize0: integer;
@@ -1897,6 +1894,12 @@ begin
     Exit;
   end;
 
+  if Obj is jImageButton then
+  begin
+    jImageButton(Obj).GenEvent_OnClick(Obj);
+    Exit;
+  end;
+
 end;
 
 procedure Java_Event_pOnChronometerTick(env: PJNIEnv; this: jobject; Obj: TObject; elapsedTimeMillis: JLong);
@@ -2647,121 +2650,6 @@ begin
   end;
 end;
 
-procedure Java_Event_pOnGDXFormRender(env:PJNIEnv;this:JObject;Sender:TObject;deltaTime:single);
-begin
-  gApp.Jni.jEnv := env;
-  if this <> nil then gApp.Jni.jThis := this;
-
-  if Sender is jGdxForm then
-  begin
-    jGdxForm(Sender).GenEvent_OnGDXFormRender(Sender,deltaTime);
-  end;
-end;
-
-procedure Java_Event_pOnGDXFormShow(env:PJNIEnv;this:JObject;Sender:TObject);
-begin
-  gApp.Jni.jEnv := env;
-  if this <> nil then gApp.Jni.jThis := this;
-
-  if Sender is jGdxForm then
-  begin
-    jGdxForm(Sender).GenEvent_OnGDXFormShow(Sender);
-  end;
-end;
-
-procedure Java_Event_pOnGDXFormResize(env:PJNIEnv;this:JObject;Sender:TObject;width:integer;height:integer);
-begin
-  gApp.Jni.jEnv := env;
-  if this <> nil then gApp.Jni.jThis := this;
-
-  if Sender is jGdxForm then
-  begin
-    jGdxForm(Sender).GenEvent_OnGDXFormResize(Sender,width,height);
-  end;
-end;
-
-procedure Java_Event_pOnGDXFormClose(env:PJNIEnv;this:JObject;Sender:TObject);
-begin
-  gApp.Jni.jEnv := env;
-  if this <> nil then gApp.Jni.jThis := this;
-
-  if Sender is jGdxForm then
-  begin
-    jGdxForm(Sender).GenEvent_OnGDXFormClose(Sender);
-  end;
-end;
-
-procedure Java_Event_pOnGDXFormTouchDown(env:PJNIEnv;this:JObject;Sender:TObject;screenX:integer;screenY:integer;pointer:integer;button:integer);
-begin
-  gApp.Jni.jEnv := env;
-  if this <> nil then gApp.Jni.jThis := this;
-
-  if Sender is jGdxForm then
-  begin
-    jGdxForm(Sender).GenEvent_OnGDXFormTouchDown(Sender,screenX,screenY,pointer,button);
-  end;
-end;
-
-procedure Java_Event_pOnGDXFormTouchUp(env:PJNIEnv;this:JObject;Sender:TObject;screenX:integer;screenY:integer;pointer:integer;button:integer);
-begin
-  gApp.Jni.jEnv := env;
-  if this <> nil then gApp.Jni.jThis := this;
-
-  if Sender is jGdxForm then
-  begin
-    jGdxForm(Sender).GenEvent_OnGDXFormTouchUp(Sender,screenX,screenY,pointer,button);
-  end;
-end;
-
-function Java_Event_pOnGDXFormKeyPressed(env:PJNIEnv;this:JObject;Sender:TObject;keyCode:integer):integer;
-var
-  outReturn: integer;
-begin
-  gApp.Jni.jEnv := env;
-  if this <> nil then gApp.Jni.jThis := this;
-
-  outReturn:=0;
-  if Sender is jGdxForm then
-  begin
-    jGdxForm(Sender).GenEvent_OnGDXFormKeyPressed(Sender,keyCode{,outReturn});
-  end;
-  Result:=outReturn;
-end;
-
-procedure Java_Event_pOnGDXFormResume(env:PJNIEnv;this:JObject;Sender:TObject);
-begin
-  gApp.Jni.jEnv := env;
-  if this <> nil then gApp.Jni.jThis := this;
-
-  if Sender is jGdxForm then
-  begin
-    jGdxForm(Sender).GenEvent_OnGDXFormResume(Sender);
-  end;
-end;
-
-procedure Java_Event_pOnGDXFormPause(env:PJNIEnv;this:JObject;Sender:TObject);
-begin
-  gApp.Jni.jEnv := env;
-  if this <> nil then gApp.Jni.jThis := this;
-
-  if Sender is jGdxForm then
-  begin
-    jGdxForm(Sender).GenEvent_OnGDXFormPause(Sender);
-  end;
-end;
-
-procedure Java_Event_pOnGDXFormHide(env:PJNIEnv;this:JObject;Sender:TObject);
-begin
-  gApp.Jni.jEnv := env;
-  if this <> nil then gApp.Jni.jThis := this;
-
-  if Sender is jGdxForm then
-  begin
-    jGdxForm(Sender).GenEvent_OnGDXFormHide(Sender);
-  end;
-end;
-
-
 procedure Java_Event_pOnMailMessageRead(env:PJNIEnv;this:JObject;Sender:TObject;position:integer;Header:jString;Date:jString;Subject:jString;ContentType:jString;ContentText:jString;Attachments:jString);
 begin
   gApp.Jni.jEnv := env;
@@ -3287,6 +3175,53 @@ begin
   if Sender is jcWebSocketClient then
   begin
     jcWebSocketClient(Sender).GenEvent_WebSocketClientOnCloseReceived(Sender);
+  end;
+end;
+
+procedure Java_Event_pOnArduinoAflakSerialAttached(env:PJNIEnv;this:JObject;Sender:TObject;usb:JObject);
+begin
+  gApp.Jni.jEnv:= env;
+  gApp.Jni.jThis:= this;
+  if Sender is jsArduinoAflakSerial then
+  begin
+    jsArduinoAflakSerial(Sender).GenEvent_OnArduinoAflakSerialAttached(Sender,usb);
+  end;
+end;
+procedure Java_Event_pOnArduinoAflakSerialDetached(env:PJNIEnv;this:JObject;Sender:TObject);
+begin
+  gApp.Jni.jEnv:= env;
+  gApp.Jni.jThis:= this;
+  if Sender is jsArduinoAflakSerial then
+  begin
+    jsArduinoAflakSerial(Sender).GenEvent_OnArduinoAflakSerialDetached(Sender);
+  end;
+end;
+procedure Java_Event_pOnArduinoAflakSerialMessageReceived(env:PJNIEnv;this:JObject;Sender:TObject;jbytesReceived:jbyteArray);
+begin
+  gApp.Jni.jEnv:= env;
+  gApp.Jni.jThis:= this;
+  if Sender is jsArduinoAflakSerial then
+  begin
+    jsArduinoAflakSerial(Sender).GenEvent_OnArduinoAflakSerialMessageReceived(Sender,GetDynArrayOfJByte(env,jbytesReceived));
+  end;
+end;
+procedure Java_Event_pOnArduinoAflakSerialOpened(env:PJNIEnv;this:JObject;Sender:TObject);
+begin
+  gApp.Jni.jEnv:= env;
+  gApp.Jni.jThis:= this;
+  if Sender is jsArduinoAflakSerial then
+  begin
+    jsArduinoAflakSerial(Sender).GenEvent_OnArduinoAflakSerialOpened(Sender);
+  end;
+end;
+
+procedure Java_Event_pOnArduinoAflakSerialStatusChanged(env:PJNIEnv;this:JObject;Sender:TObject;statusMessage:jString);
+begin
+  gApp.Jni.jEnv:= env;
+  gApp.Jni.jThis:= this;
+  if Sender is jsArduinoAflakSerial then
+  begin
+    jsArduinoAflakSerial(Sender).GenEvent_OnArduinoAflakSerialStatusChanged(Sender,GetString(env,statusMessage));
   end;
 end;
 

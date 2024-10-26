@@ -15,16 +15,20 @@
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
-    <CustomData Count="9">
+    <CustomData Count="13">
       <Item0 Name="BuildSystem" Value="Ant"/>
-      <Item1 Name="LAMW" Value="GUI"/>
-      <Item2 Name="LamwVersion" Value="0.8.4"/>
-      <Item3 Name="NdkApi" Value="android-22"/>
-      <Item4 Name="NdkPath" Value="C:\android\ndkr18b\"/>
-      <Item5 Name="Package" Value="org.lamw.appfclmysql57connectionbridgedemo1"/>
-      <Item6 Name="SdkPath" Value="C:\adt32\sdk\"/>
-      <Item7 Name="StartModule" Value="AndroidModule1"/>
-      <Item8 Name="Theme" Value="DeviceDefault"/>
+      <Item1 Name="CanCreateResMipmapFolder" Value="NO"/>
+      <Item2 Name="KeepMyBuildGradleWhenReopen" Value="NO"/>
+      <Item3 Name="LAMW" Value="GUI"/>
+      <Item4 Name="LamwVersion" Value="0.8.6.4"/>
+      <Item5 Name="MinSdk" Value="14"/>
+      <Item6 Name="NdkApi" Value="android-22"/>
+      <Item7 Name="NdkPath" Value="C:\android\android-ndk-r21e\"/>
+      <Item8 Name="Package" Value="org.lamw.appfclmysql57connectionbridgedemo1"/>
+      <Item9 Name="SdkPath" Value="C:\android\sdkJ17\"/>
+      <Item10 Name="StartModule" Value="AndroidModule1"/>
+      <Item11 Name="TargetSdk" Value="34"/>
+      <Item12 Name="Theme" Value="DeviceDefault"/>
     </CustomData>
     <BuildModes Count="1">
       <Item1 Name="Default" Default="True"/>
@@ -69,7 +73,7 @@
       <Filename Value="..\libs\armeabi-v7a\libcontrols"/>
     </Target>
     <SearchPaths>
-      <Libraries Value="C:\android\ndkr18b\platforms\android-22\arch-arm\usr\lib\;C:\android\ndkr18b\toolchains\arm-linux-androideabi-4.9\prebuilt\windows-x86_64\lib\gcc\arm-linux-androideabi\4.9.x\"/>
+      <Libraries Value="C:\android\android-ndk-r21e\platforms\android-22\arch-arm\usr\lib\;C:\android\android-ndk-r21e\toolchains\arm-linux-androideabi-4.9\prebuilt\windows-x86_64\lib\gcc\arm-linux-androideabi\4.9.x\"/>
       <UnitOutputDirectory Value="..\obj\controls"/>
     </SearchPaths>
     <Parsing>
@@ -98,7 +102,7 @@
       </Options>
     </Linking>
     <Other>
-      <CustomOptions Value="-Xd -CfSoft -CpARMV7A -XParm-linux-androideabi- -FDC:\android\ndkr18b\toolchains\arm-linux-androideabi-4.9\prebuilt\windows-x86_64\bin"/>
+      <CustomOptions Value="-Xd -CfSoft -CpARMV7A -XParm-linux-androideabi- -FDC:\android\android-ndk-r21e\toolchains\arm-linux-androideabi-4.9\prebuilt\windows-x86_64\bin"/>
     </Other>
   </CompilerOptions>
   <Debugging>

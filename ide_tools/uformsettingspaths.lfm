@@ -1,10 +1,10 @@
 object FormSettingsPaths: TFormSettingsPaths
   Left = 297
-  Height = 631
+  Height = 629
   Top = 245
   Width = 542
-  Caption = '[LAMW 0.8.6] Paths/Settings'
-  ClientHeight = 631
+  Caption = '[LAMW 0.8.6.4] Paths/Settings'
+  ClientHeight = 629
   ClientWidth = 542
   Color = clGradientInactiveCaption
   DesignTimePPI = 120
@@ -92,7 +92,6 @@ object FormSettingsPaths: TFormSettingsPaths
   OnClose = FormClose
   OnShow = FormShow
   Position = poScreenCenter
-  LCLVersion = '2.0.12.0'
   object BitBtnOK: TBitBtn
     AnchorSideLeft.Side = asrBottom
     AnchorSideTop.Side = asrBottom
@@ -111,7 +110,7 @@ object FormSettingsPaths: TFormSettingsPaths
     ModalResult = 1
     OnClick = BitBtnOKClick
     ParentFont = False
-    TabOrder = 4
+    TabOrder = 2
   end
   object BitBtnCancel: TBitBtn
     AnchorSideTop.Control = BitBtnOK
@@ -129,20 +128,6 @@ object FormSettingsPaths: TFormSettingsPaths
     Kind = bkCancel
     ModalResult = 2
     OnClick = BitBtnCancelClick
-    ParentFont = False
-    TabOrder = 5
-  end
-  object EditPathToAndroidSDK: TEdit
-    AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = LabelPathToAndroidSDK
-    AnchorSideTop.Side = asrBottom
-    AnchorSideRight.Control = SpBPathToAndroidSDK
-    Left = 8
-    Height = 28
-    Top = 365
-    Width = 493
-    Anchors = [akTop, akLeft, akRight]
-    BorderSpacing.Around = 8
     ParentFont = False
     TabOrder = 3
   end
@@ -164,36 +149,21 @@ object FormSettingsPaths: TFormSettingsPaths
     Left = 8
     Height = 20
     Top = 8
-    Width = 427
+    Width = 494
     BorderSpacing.Around = 8
-    Caption = 'Path to Java JDK:  [ ex.  C:\Program Files (x86)\Java\jdk1.8.0_101 ]'
+    Caption = 'Path to Java JDK11:  [ ex.  C:\Program Files\Eclipse Adoptium\jdk-11.0.21.9]'
     ParentColor = False
     ParentFont = False
   end
-  object EditPathToJavaJDK: TEdit
-    AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = LabelPathToJavaJDK
-    AnchorSideTop.Side = asrBottom
-    AnchorSideRight.Control = SpBPathToJavaJDK
-    Left = 8
-    Height = 28
-    Top = 36
-    Width = 493
-    Anchors = [akTop, akLeft, akRight]
-    BorderSpacing.Around = 8
-    ParentFont = False
-    TabOrder = 0
-  end
   object LabelPathToAndroidNDK: TLabel
     AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = EditPathToGradle
     AnchorSideTop.Side = asrBottom
     Left = 8
     Height = 20
     Top = 204
-    Width = 142
+    Width = 294
     BorderSpacing.Around = 8
-    Caption = 'Path to Android NDK:'
+    Caption = 'Path to Android NDK [ex. C:\lamw\ndk-r21e]'
     ParentColor = False
     ParentFont = False
   end
@@ -210,11 +180,10 @@ object FormSettingsPaths: TFormSettingsPaths
     BorderSpacing.Around = 8
     OnExit = EditPathToAndroidNDKExit
     ParentFont = False
-    TabOrder = 2
+    TabOrder = 1
   end
   object LabelPathToAntBinary: TLabel
     AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = EditPathToJavaJDK
     AnchorSideTop.Side = asrBottom
     Left = 8
     Height = 20
@@ -237,10 +206,9 @@ object FormSettingsPaths: TFormSettingsPaths
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Around = 8
     ParentFont = False
-    TabOrder = 1
+    TabOrder = 0
   end
   object SpBPathToJavaJDK: TSpeedButton
-    AnchorSideTop.Control = EditPathToJavaJDK
     AnchorSideTop.Side = asrCenter
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
@@ -300,14 +268,13 @@ object FormSettingsPaths: TFormSettingsPaths
   object StatusBar1: TStatusBar
     Left = 0
     Height = 29
-    Top = 602
+    Top = 600
     Width = 542
     Panels = <>
     ParentFont = False
   end
   object Image1: TImage
     AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = EditPathToAndroidSDK
     AnchorSideTop.Side = asrBottom
     Left = 8
     Height = 189
@@ -1486,7 +1453,6 @@ object FormSettingsPaths: TFormSettingsPaths
     ParentFont = False
   end
   object SpBPathToAndroidSDK: TSpeedButton
-    AnchorSideTop.Control = EditPathToAndroidSDK
     AnchorSideTop.Side = asrCenter
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
@@ -1508,27 +1474,11 @@ object FormSettingsPaths: TFormSettingsPaths
     Top = 144
     Width = 277
     BorderSpacing.Around = 8
-    Caption = 'Path to Gradle [ ex. C:\lamw\gradle-6.6.1 ]'
+    Caption = 'Path to Gradle [ ex. C:\lamw\gradle-7.6.3 ]'
     ParentColor = False
     ParentFont = False
   end
-  object EditPathToGradle: TEdit
-    AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = LabelPathToGradle
-    AnchorSideRight.Control = SpBPathToGradle
-    Left = 8
-    Height = 28
-    Hint = 'Required by "AppCompat" [material] theme'
-    Top = 168
-    Width = 495
-    Anchors = [akTop, akLeft, akRight]
-    BorderSpacing.Top = 16
-    BorderSpacing.Around = 8
-    ParentFont = False
-    TabOrder = 7
-  end
   object SpBPathToGradle: TSpeedButton
-    AnchorSideTop.Control = EditPathToGradle
     Left = 511
     Height = 28
     Top = 168
@@ -1595,7 +1545,7 @@ object FormSettingsPaths: TFormSettingsPaths
     ClientHeight = 36
     ClientWidth = 171
     ParentFont = False
-    TabOrder = 8
+    TabOrder = 5
     object ComboBoxPrebuild: TComboBox
       Left = 5
       Height = 28
@@ -1616,6 +1566,91 @@ object FormSettingsPaths: TFormSettingsPaths
     Width = 105
     Caption = 'NDK Release: ....'
     ParentColor = False
+  end
+  object SpeedButtonAnt: TSpeedButton
+    Left = 509
+    Height = 28
+    Top = 72
+    Width = 25
+    Glyph.Data = {
+      36040000424D3604000000000000360000002800000010000000100000000100
+      2000000000000004000064000000640000000000000000000000FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF000D0D
+      F29C0D0DF2FF0D0DF2FF0D0DF2FF0D0DF2FF0D0DF2FF0D0DF2FF0D0DF2FF0D0D
+      F2FF0D0DF2FF0D0DF2FF0D0DF2FF0D0DF2FF0D0DF2FF0D0DF29CFFFFFF000E0E
+      F1700D0DF2FF5A5AF6FF8E8EF9FF8E8EF9FF8E8EF9FF8E8EF9FF8E8EF9FF8E8E
+      F9FF8E8EF9FF8E8EF9FF8E8EF9FF5A5AF6FF0D0DF2FF0E0EF170FFFFFF000000
+      FF061010F2DE3838F4FCFDFDFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      FFFFFFFFFFFFFFFFFFFFFDFDFFFF3A3AF5FC1010F3E10000FF07FFFFFF00FFFF
+      FF000C0CF3570D0DF2FFA4A4FAFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFFFF
+      FFFFFFFFFFFFFFFFFFFFA3A3FAFF0D0DF2FF0C0CF356FFFFFF00FFFFFF00FFFF
+      FF000000FF010F0FF2C72424F3FCF6F6FEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      FFFFFFFFFFFFF6F6FFFF2626F3FC0F0FF2CB0000FF01FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF000D0DF2390D0DF2FE8A8AF9FFFFFFFFFFFFFFFFFF000000FFFFFF
+      FFFFFFFFFFFF8989F9FF0D0DF2FF0D0DF23CFFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF000F0FF2AE1616F3FDE8E8FEFFFFFFFFFF000000FFFFFF
+      FFFFEAEAFEFF1717F3FC0F0FF2ADFFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF000F0FF0220F0FF2FB7171F7FFFFFFFFFF000000FFFFFF
+      FFFF7070F7FF0E0EF2FB0E0EF125FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF000C0CF3920F0FF2FED6D6FDFF7F7F7FFFDADA
+      FDFF1111F2FE0C0CF391FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF000D0DF2140F0FF2F25656F6FEFFFFFFFF5555
+      F6FE0F0FF2F40C0CF316FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF000D0DF2760D0DF2FF8686F8FF0D0D
+      F2FF0D0DF276FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF000000FF081010F3E30D0DF2FF1111
+      F2E61A1AE60AFFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF000E0EF15A0D0DF2FF0E0E
+      F15AFFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF000C0CF32AFFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00
+    }
+    OnClick = SpeedButtonAntClick
+  end
+  object ComboBoxPathToJavaJDK: TComboBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = LabelPathToJavaJDK
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = SpBPathToJavaJDK
+    Left = 8
+    Height = 28
+    Top = 36
+    Width = 493
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Around = 8
+    ItemHeight = 20
+    TabOrder = 6
+  end
+  object ComboBoxPathToGradle: TComboBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = LabelPathToGradle
+    AnchorSideRight.Control = SpBPathToGradle
+    Left = 8
+    Height = 28
+    Top = 168
+    Width = 495
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 16
+    BorderSpacing.Around = 8
+    ItemHeight = 20
+    TabOrder = 7
+  end
+  object ComboBoxPathToAndroidSDK: TComboBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = LabelPathToAndroidSDK
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = SpBPathToAndroidSDK
+    Left = 8
+    Height = 28
+    Top = 365
+    Width = 493
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Around = 8
+    ItemHeight = 20
+    TabOrder = 8
   end
   object SelDirDlgPathTo: TSelectDirectoryDialog
     Left = 248

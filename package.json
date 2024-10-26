@@ -1,17 +1,18 @@
-{
+  {
 	"name": "Lazarus Android Module Wizard",
-	"version": "0.8.6.2",
+	"version": "0.8.6.4",
 	"packages":[
 		"android_bridges/tfpandroidbridge_pack.lpk",
 		"android_wizard/lazandroidwizardpack.lpk",
 		"ide_tools/amw_ide_tools.lpk",
 		"fcl_bridges/fcl_bridges_pack.lpk"
 	],
-	"dependencies":{
-		"gradle": "6.6.1",
+	"dependencies":{ 
+        "jdk": "21",
+		"gradle": "8.5",
 		"android":{
-			"platform": "30",
-			"buildTools" : "30.0.2"
+			"platform": "34",
+			"buildTools" : "34.0.0"
 		}
 	}
 }
